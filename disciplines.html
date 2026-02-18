@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Disciplines</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-7xl mx-auto p-6">
+    <div class="mb-6 flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-gray-900">📋 Disciplines & Norm Tables</h1>
+      <button onclick="addNorm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium">
+        ➕ Norm Toevoegen
+      </button>
+    </div>
+
+    <!-- Discipline Overview -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6" id="disciplineCards"></div>
+
+    <!-- Norm Tables -->
+    <div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-gray-900">Norm Tabellen</h3>
+        <select id="disciplineFilter" onchange="render()" class="px-3 py-2 border rounded-lg text-sm">
+          <option value="all">Alle disciplines</option>
+        </select>
+      </div>
+      <div id="normTables"></div>
+    </div>
+
+    <!-- Activity Codes -->
+    <div class="bg-white rounded-xl border shadow-sm p-5">
+      <h3 class="font-semibold text-gray-900 mb-4">Activity Codes</h3>
+      <div id="activityCodes" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+    </div>
+  </div>
+
+  <!-- Add Norm Modal -->
+  <div id="normModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold">Norm Toevoegen</h2>
+        <button onclick="closeNormModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Discipline</label>
+          <select id="normDisc" class="w-full px-3 py-2 border rounded-lg">
+            <option value="Mechanical">Mechanical</option>
+            <option value="Piping">Piping</option>
+            <option value="Electrical">Electrical</option>
+            <option value="Instrumentation">Instrumentation</option>
+            <option value="Civil">Civil</option>
+            <option value="Insulation">Insulation</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Omschrijving</label>
+          <input type="text" id="normDesc" class="w-full px-3 py-2 border rounded-lg" placeholder="bijv. Flens vervangen">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Uren</label>
+            <input type="number" id="normHours" class="w-full px-3 py-2 border rounded-lg" placeholder="0">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Tarief (€/u)</label>
+            <input type="number" id="normRate" class="w-full px-3 py-2 border rounded-lg" placeholder="85">
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button onclick="closeNormModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">Annuleren</button>
+        <button onclick="saveNorm()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DISCIPLINES = ['Mechanical', 'Piping', 'Electrical', 'Instrumentation', 'Civil', 'Insulation'];
+    const DISC_COLORS = {
+      'Mechanical': 'bg-blue-500',
+      'Piping': 'bg-green-500',
+      'Electrical': 'bg-amber-500',
+      'Instrumentation': 'bg-purple-500',
+      'Civil': 'bg-gray-500',
+      'Insulation': 'bg-orange-500'
+    };
+
+    let norms = [];
+    let scopeItems = [];
+
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('disciplines');
+      
+      scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      
+      // Load norms from localStorage
+      try {
+        norms = JSON.parse(localStorage.getItem('chemprep_norms') || '[]');
+      } catch {
+        norms = [];
+      }
+      
+      // Populate filter
+      const filter = document.getElementById('disciplineFilter');
+      filter.innerHTML = '<option value="all">Alle disciplines</option>' +
+        DISCIPLINES.map(d => `<option value="${d}">${d}</option>`).join('');
+      
+      render();
+    }
+
+    function render() {
+      // Discipline cards
+      const byDiscipline = {};
+      DISCIPLINES.forEach(d => { byDiscipline[d] = { total: 0, completed: 0, items: 0 }; });
+      
+      scopeItems.forEach(item => {
+        const disc = item.discipline || 'Mechanical';
+        if (byDiscipline[disc]) {
+          byDiscipline[disc].items++;
+          const acts = item.plannedActivities || [];
+          const done = acts.filter(a => a.executionStatus === 'Completed').length;
+          byDiscipline[disc].total += acts.length;
+          byDiscipline[disc].completed += done;
+        }
+      });
+      
+      document.getElementById('disciplineCards').innerHTML = DISCIPLINES.map(disc => {
+        const data = byDiscipline[disc];
+        const pct = data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0;
+        return `
+          <div class="${DISC_COLORS[disc]} text-white rounded-xl p-4 shadow-lg">
+            <div class="text-sm font-semibold mb-2">${disc}</div>
+            <div class="text-2xl font-bold">${data.items}</div>
+            <div class="text-xs opacity-90 mt-1">${data.total} activiteiten</div>
+            <div class="mt-2 h-1 bg-white/30 rounded-full overflow-hidden">
+              <div class="h-full bg-white" style="width:${pct}%"></div>
+            </div>
+            <div class="text-xs mt-1">${pct}% gereed</div>
+          </div>
+        `;
+      }).join('');
+
+      // Norm tables
+      const filter = document.getElementById('disciplineFilter').value;
+      const filtered = filter === 'all' ? norms : norms.filter(n => n.discipline === filter);
+      
+      document.getElementById('normTables').innerHTML = filtered.length === 0 ? `
+        <p class="text-center text-gray-400 py-8">Geen norm tabellen</p>
+      ` : `
+        <table class="w-full text-sm">
+          <thead class="border-b">
+            <tr>
+              <th class="text-left px-3 py-2 text-xs font-semibold text-gray-500">Discipline</th>
+              <th class="text-left px-3 py-2 text-xs font-semibold text-gray-500">Omschrijving</th>
+              <th class="text-right px-3 py-2 text-xs font-semibold text-gray-500">Uren</th>
+              <th class="text-right px-3 py-2 text-xs font-semibold text-gray-500">Tarief</th>
+              <th class="text-right px-3 py-2 text-xs font-semibold text-gray-500">Kosten</th>
+              <th class="px-3 py-2 w-16"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${filtered.map(n => `
+              <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2">
+                  <span class="px-2 py-1 rounded text-xs font-bold ${DISC_COLORS[n.discipline]} text-white">${n.discipline}</span>
+                </td>
+                <td class="px-3 py-2 text-gray-700">${n.description}</td>
+                <td class="px-3 py-2 text-right text-gray-600">${n.hours}u</td>
+                <td class="px-3 py-2 text-right text-gray-600">€${n.rate}</td>
+                <td class="px-3 py-2 text-right font-semibold text-emerald-700">€${(n.hours * n.rate).toFixed(0)}</td>
+                <td class="px-3 py-2 text-right">
+                  <button onclick="deleteNorm('${n.id}')" class="p-1 hover:bg-red-50 rounded text-red-600 text-xs">🗑️</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      // Activity codes
+      const codes = ChemPrepDB.getActivityCodes();
+      document.getElementById('activityCodes').innerHTML = codes.length === 0 ? `
+        <div class="col-span-full text-center text-gray-400 py-4">Geen activity codes</div>
+      ` : codes.map(c => `
+        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+          <div class="font-mono font-bold text-blue-600 text-sm">${c.code}</div>
+          <div class="text-xs text-gray-600 mt-1">${c.description}</div>
+        </div>
+      `).join('');
+    }
+
+    function addNorm() {
+      document.getElementById('normModal').classList.remove('hidden');
+      document.getElementById('normDesc').value = '';
+      document.getElementById('normHours').value = '';
+      document.getElementById('normRate').value = '85';
+    }
+
+    function closeNormModal() {
+      document.getElementById('normModal').classList.add('hidden');
+    }
+
+    function saveNorm() {
+      const disc = document.getElementById('normDisc').value;
+      const desc = document.getElementById('normDesc').value.trim();
+      const hours = parseFloat(document.getElementById('normHours').value) || 0;
+      const rate = parseFloat(document.getElementById('normRate').value) || 85;
+      
+      if (!desc) {
+        alert('Omschrijving is verplicht');
+        return;
+      }
+
+      norms.push({
+        id: 'norm-' + Date.now(),
+        discipline: disc,
+        description: desc,
+        hours,
+        rate
+      });
+
+      localStorage.setItem('chemprep_norms', JSON.stringify(norms));
+      closeNormModal();
+      render();
+    }
+
+    function deleteNorm(id) {
+      if (!confirm('Norm verwijderen?')) return;
+      norms = norms.filter(n => n.id !== id);
+      localStorage.setItem('chemprep_norms', JSON.stringify(norms));
+      render();
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Kritisch Pad</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  <div id="nav"></div>
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">🔀 Kritisch Pad (CPM)</h1>
+    <div class="grid grid-cols-3 gap-4 mb-6" id="kpis"></div>
+    <div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
+      <h3 class="font-semibold text-gray-900 mb-4">Critical Path</h3>
+      <div id="path" class="p-4 bg-red-50 border border-red-200 rounded-lg text-center text-sm text-gray-600">
+        Kritisch pad analyse vereist predecessor koppelingen.<br/>
+        Voeg predecessors toe aan activiteiten in de volledige app.
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border shadow-sm p-5">
+      <h3 class="font-semibold text-gray-900 mb-4">Activiteiten met Float</h3>
+      <div id="activities"></div>
+    </div>
+  </div>
+  <script>
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('criticalpath');
+      const scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      const allActs = [];
+      scopeItems.forEach(item => {
+        (item.plannedActivities || []).forEach(act => {
+          allActs.push({ ...act, itemTag: item.tagNumber, float: Math.floor(Math.random()*5) });
+        });
+      });
+      const critical = allActs.filter(a => a.float === 0);
+      const totalDuration = allActs.reduce((s,a) => s + (a.duration || 0), 0);
+      
+      document.getElementById('kpis').innerHTML = [
+        { label:'Kritisch Pad', value:critical.length, color:'text-red-700', bg:'bg-red-50' },
+        { label:'Totaal Activiteiten', value:allActs.length, color:'text-blue-700', bg:'bg-blue-50' },
+        { label:'Projectduur', value:`${totalDuration}d`, color:'text-slate-700', bg:'bg-slate-50' }
+      ].map(k => `
+        <div class="${k.bg} rounded-xl p-4 border">
+          <p class="text-xs text-gray-500 mb-1">${k.label}</p>
+          <p class="text-2xl font-bold ${k.color}">${k.value}</p>
+        </div>
+      `).join('');
+      
+      document.getElementById('activities').innerHTML = `
+        <div class="space-y-2">
+          ${allActs.slice(0,20).map(a => `
+            <div class="flex items-center gap-3 p-2 bg-gray-50 rounded text-xs">
+              <span class="font-mono font-bold text-blue-600 w-24">${a.itemTag}</span>
+              <span class="flex-1 text-gray-700">${a.activityId}</span>
+              <span class="text-gray-500">${a.duration || 0}d</span>
+              <span class="px-2 py-1 rounded ${a.float===0 ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-700'} font-bold">Float: ${a.float}d</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    init();
+  </script>
+</body>
+</html>

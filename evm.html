@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - EVM</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  <div id="nav"></div>
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">📈 Earned Value Management</h1>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="metrics"></div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white rounded-xl border shadow-sm p-5">
+        <h3 class="font-semibold text-gray-900 mb-4">Performance Indices</h3>
+        <div id="indices"></div>
+      </div>
+      <div class="bg-white rounded-xl border shadow-sm p-5">
+        <h3 class="font-semibold text-gray-900 mb-4">Forecast</h3>
+        <div id="forecast"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('evm');
+      const scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      
+      // Calculate EVM
+      const BAC = 1000000; // Example budget
+      const totalDuration = 90; // days
+      const start = new Date(project.startDate || Date.now());
+      const end = new Date(project.endDate || Date.now());
+      const today = new Date();
+      const elapsed = Math.max(0, (today - start) / (1000*60*60*24));
+      const total = Math.max(1, (end - start) / (1000*60*60*24));
+      const PV = BAC * (elapsed / total);
+      
+      let totalActs = 0, completedActs = 0;
+      scopeItems.forEach(i => {
+        const acts = i.plannedActivities || [];
+        totalActs += acts.length;
+        completedActs += acts.filter(a => a.executionStatus === 'Completed').length;
+      });
+      const progress = totalActs > 0 ? completedActs / totalActs : 0;
+      const EV = BAC * progress;
+      const AC = EV * 1.1; // Estimate
+      
+      const CV = EV - AC;
+      const SV = EV - PV;
+      const CPI = EV > 0 ? EV / AC : 1;
+      const SPI = PV > 0 ? EV / PV : 1;
+      const EAC = BAC / CPI;
+      const ETC = EAC - AC;
+      const VAC = BAC - EAC;
+      
+      document.getElementById('metrics').innerHTML = [
+        { label:'BAC', value:`€${(BAC/1000).toFixed(0)}k`, color:'text-slate-700', bg:'bg-slate-50' },
+        { label:'PV', value:`€${(PV/1000).toFixed(0)}k`, color:'text-blue-700', bg:'bg-blue-50' },
+        { label:'EV', value:`€${(EV/1000).toFixed(0)}k`, color:'text-emerald-700', bg:'bg-emerald-50' },
+        { label:'AC', value:`€${(AC/1000).toFixed(0)}k`, color:'text-amber-700', bg:'bg-amber-50' }
+      ].map(m => `
+        <div class="${m.bg} rounded-xl p-4 border">
+          <p class="text-xs text-gray-500 mb-1">${m.label}</p>
+          <p class="text-2xl font-bold ${m.color}">${m.value}</p>
+        </div>
+      `).join('');
+      
+      document.getElementById('indices').innerHTML = [
+        { label:'CPI', value:CPI.toFixed(2), good:CPI>=1 },
+        { label:'SPI', value:SPI.toFixed(2), good:SPI>=1 },
+        { label:'CV', value:`€${(CV/1000).toFixed(0)}k`, good:CV>=0 },
+        { label:'SV', value:`€${(SV/1000).toFixed(0)}k`, good:SV>=0 }
+      ].map(i => `
+        <div class="flex justify-between items-center p-3 mb-2 rounded ${i.good ? 'bg-emerald-50' : 'bg-red-50'}">
+          <span class="font-semibold">${i.label}</span>
+          <span class="text-lg font-bold ${i.good ? 'text-emerald-700' : 'text-red-700'}">${i.value}</span>
+        </div>
+      `).join('');
+      
+      document.getElementById('forecast').innerHTML = [
+        { label:'ETC (Estimate to Complete)', value:`€${(ETC/1000).toFixed(0)}k` },
+        { label:'EAC (Estimate at Completion)', value:`€${(EAC/1000).toFixed(0)}k` },
+        { label:'VAC (Variance at Completion)', value:`€${(VAC/1000).toFixed(0)}k`, color:VAC>=0?'text-emerald-700':'text-red-700' }
+      ].map(f => `
+        <div class="flex justify-between items-center p-3 mb-2 bg-gray-50 rounded">
+          <span class="text-sm">${f.label}</span>
+          <span class="font-bold ${f.color || 'text-gray-900'}">${f.value}</span>
+        </div>
+      `).join('');
+    }
+    init();
+  </script>
+</body>
+</html>

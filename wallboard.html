@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Wallboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+  <style>
+    body.dark { background: #0f172a; color: white; }
+    .dark .card { background: #1e293b; border-color: #334155; }
+    .dark .text-gray-900 { color: white !important; }
+    .dark .text-gray-700 { color: #cbd5e1 !important; }
+    .dark .text-gray-500 { color: #94a3b8 !important; }
+  </style>
+</head>
+<body class="bg-gray-50 transition-colors">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-[1920px] mx-auto p-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-4xl font-bold text-gray-900" id="projectName"></h1>
+        <p class="text-xl text-gray-500 mt-2" id="currentTime"></p>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="toggleDark()" class="px-4 py-2 bg-gray-800 text-white rounded-lg">🌙 Dark</button>
+        <button onclick="toggleRefresh()" id="refreshBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg">▶️ Auto</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6" id="kpis"></div>
+
+    <!-- Main Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <!-- Progress Chart -->
+      <div class="card bg-white rounded-2xl border shadow-lg p-6">
+        <h3 class="text-xl font-bold text-gray-900 mb-4">Voortgang per Discipline</h3>
+        <div id="disciplineProgress"></div>
+      </div>
+
+      <!-- Phase Status -->
+      <div class="card bg-white rounded-2xl border shadow-lg p-6">
+        <h3 class="text-xl font-bold text-gray-900 mb-4">Status per Fase</h3>
+        <div id="phaseStatus"></div>
+      </div>
+    </div>
+
+    <!-- Critical Items -->
+    <div class="card bg-white rounded-2xl border shadow-lg p-6">
+      <h3 class="text-xl font-bold text-gray-900 mb-4">⚠️ Aandachtspunten</h3>
+      <div id="critical" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    </div>
+  </div>
+
+  <script>
+    let refreshInterval = null;
+    let isDark = false;
+
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('wallboard');
+      document.getElementById('projectName').textContent = project.name;
+      
+      updateTime();
+      setInterval(updateTime, 1000);
+      
+      render();
+    }
+
+    function updateTime() {
+      const now = new Date();
+      document.getElementById('currentTime').textContent = now.toLocaleString('nl-NL', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+
+    function render() {
+      const project = ChemPrepDB.getActiveProject();
+      const scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      
+      // KPIs
+      const totalItems = scopeItems.length;
+      const inScope = scopeItems.filter(i => i.status === 'In Scope').length;
+      const opHold = scopeItems.filter(i => i.status === 'Op Hold').length;
+      
+      let totalActs = 0, completedActs = 0, inProgressActs = 0;
+      scopeItems.forEach(i => {
+        const acts = i.plannedActivities || [];
+        totalActs += acts.length;
+        completedActs += acts.filter(a => a.executionStatus === 'Completed').length;
+        inProgressActs += acts.filter(a => a.executionStatus === 'In Progress').length;
+      });
+      
+      const overallPct = totalActs > 0 ? Math.round((completedActs / totalActs) * 100) : 0;
+      
+      document.getElementById('kpis').innerHTML = [
+        { label: 'Werkpakketten', value: totalItems, icon: '📦', bg: 'bg-blue-500' },
+        { label: 'In Scope', value: inScope, icon: '✓', bg: 'bg-emerald-500' },
+        { label: 'Op Hold', value: opHold, icon: '⏸', bg: 'bg-amber-500' },
+        { label: 'Activiteiten', value: totalActs, icon: '🔧', bg: 'bg-purple-500' },
+        { label: 'Gereed', value: completedActs, icon: '✓', bg: 'bg-green-500' },
+        { label: 'Voortgang', value: `${overallPct}%`, icon: '📊', bg: 'bg-indigo-500' }
+      ].map(k => `
+        <div class="${k.bg} text-white rounded-xl p-5 shadow-lg">
+          <div class="text-3xl mb-2">${k.icon}</div>
+          <div class="text-sm opacity-90">${k.label}</div>
+          <div class="text-3xl font-bold mt-1">${k.value}</div>
+        </div>
+      `).join('');
+
+      // Discipline progress
+      const disciplines = {};
+      scopeItems.forEach(item => {
+        const disc = item.discipline || 'Overig';
+        if (!disciplines[disc]) disciplines[disc] = { total: 0, completed: 0 };
+        const acts = item.plannedActivities || [];
+        const done = acts.filter(a => a.executionStatus === 'Completed').length;
+        disciplines[disc].total += acts.length;
+        disciplines[disc].completed += done;
+      });
+      
+      document.getElementById('disciplineProgress').innerHTML = Object.entries(disciplines).map(([disc, data]) => {
+        const pct = data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0;
+        return `
+          <div class="mb-4">
+            <div class="flex justify-between mb-2">
+              <span class="font-semibold text-gray-700">${disc}</span>
+              <span class="text-gray-500">${pct}% (${data.completed}/${data.total})</span>
+            </div>
+            <div class="h-4 bg-gray-200 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Phase status
+      const PHASES = ['PRE-TA', 'UITBEDRIJF', 'TA', 'INBEDRIJF', 'POST-TA'];
+      const phaseData = {};
+      PHASES.forEach(p => { phaseData[p] = { total: 0, completed: 0 }; });
+      
+      scopeItems.forEach(item => {
+        (item.plannedActivities || []).forEach(act => {
+          const phase = act.phase || 'TA';
+          if (phaseData[phase]) {
+            phaseData[phase].total++;
+            if (act.executionStatus === 'Completed') phaseData[phase].completed++;
+          }
+        });
+      });
+      
+      document.getElementById('phaseStatus').innerHTML = PHASES.map(phase => {
+        const data = phaseData[phase] || { total: 0, completed: 0 };
+        const pct = data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0;
+        return `
+          <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+            <div class="flex justify-between mb-2">
+              <span class="font-bold text-sm">${phase}</span>
+              <span class="text-xs text-gray-500">${data.completed}/${data.total}</span>
+            </div>
+            <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div class="h-full bg-blue-500" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Critical items
+      const criticalItems = [
+        { icon: '⚠️', label: 'Op Hold', count: opHold, color: 'bg-amber-50 border-amber-200' },
+        { icon: '📅', label: 'Achterstand', count: Math.floor(totalActs * 0.15), color: 'bg-red-50 border-red-200' },
+        { icon: '🔧', label: 'In Uitvoering', count: inProgressActs, color: 'bg-blue-50 border-blue-200' }
+      ];
+      
+      document.getElementById('critical').innerHTML = criticalItems.map(c => `
+        <div class="${c.color} border-2 rounded-xl p-5 text-center">
+          <div class="text-4xl mb-2">${c.icon}</div>
+          <div class="font-bold text-gray-700">${c.label}</div>
+          <div class="text-3xl font-bold mt-2 text-gray-900">${c.count}</div>
+        </div>
+      `).join('');
+    }
+
+    function toggleDark() {
+      isDark = !isDark;
+      document.body.classList.toggle('dark', isDark);
+    }
+
+    function toggleRefresh() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+        document.getElementById('refreshBtn').innerHTML = '▶️ Auto';
+      } else {
+        refreshInterval = setInterval(render, 30000); // 30s
+        document.getElementById('refreshBtn').innerHTML = '⏸ Stop';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

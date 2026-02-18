@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Export Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-4xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">📤 Export Hub</h1>
+
+    <!-- Export Options -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      
+      <!-- CSV Export -->
+      <div class="bg-white rounded-xl border shadow-sm p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center text-2xl">📊</div>
+          <div>
+            <h3 class="font-bold text-gray-900">CSV Export</h3>
+            <p class="text-xs text-gray-500">Spreadsheet formaat</p>
+          </div>
+        </div>
+        <div class="space-y-2 mb-4">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" id="csv-scope" checked class="accent-blue-600">
+            Scope items
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" id="csv-activities" checked class="accent-blue-600">
+            Activiteiten
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" id="csv-materials" class="accent-blue-600">
+            Materialen
+          </label>
+        </div>
+        <button onclick="exportCSV()" class="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700">
+          Download CSV
+        </button>
+      </div>
+
+      <!-- HTML Report -->
+      <div class="bg-white rounded-xl border shadow-sm p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-2xl">📄</div>
+          <div>
+            <h3 class="font-bold text-gray-900">HTML Rapport</h3>
+            <p class="text-xs text-gray-500">Print-ready overzicht</p>
+          </div>
+        </div>
+        <p class="text-sm text-gray-600 mb-4">Genereer een compleet HTML rapport met alle project details, geschikt voor printen of delen.</p>
+        <button onclick="exportHTML()" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+          Genereer HTML
+        </button>
+      </div>
+
+      <!-- JSON Backup -->
+      <div class="bg-white rounded-xl border shadow-sm p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center text-2xl">💾</div>
+          <div>
+            <h3 class="font-bold text-gray-900">JSON Backup</h3>
+            <p class="text-xs text-gray-500">Volledige data backup</p>
+          </div>
+        </div>
+        <p class="text-sm text-gray-600 mb-4">Download alle project data als JSON bestand. Kan later geïmporteerd worden.</p>
+        <button onclick="exportJSON()" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">
+          Download Backup
+        </button>
+      </div>
+
+      <!-- P6 XML -->
+      <div class="bg-white rounded-xl border shadow-sm p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center text-2xl">📅</div>
+          <div>
+            <h3 class="font-bold text-gray-900">Primavera P6 XML</h3>
+            <p class="text-xs text-gray-500">Planning software</p>
+          </div>
+        </div>
+        <p class="text-sm text-gray-600 mb-4">Export planning naar Primavera P6 XER/XML formaat voor import in scheduling tools.</p>
+        <button onclick="exportP6()" class="w-full px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700">
+          Export P6 XML
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Recent Exports -->
+    <div class="bg-white rounded-xl border shadow-sm p-6 mt-6">
+      <h3 class="font-semibold text-gray-900 mb-4">Recente Exports</h3>
+      <div id="recentExports" class="text-sm text-gray-500 text-center py-8">
+        Nog geen exports gegenereerd
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let project = null;
+    let scopeItems = [];
+
+    function init() {
+      project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('exports');
+      scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+    }
+
+    function exportCSV() {
+      const includeScope = document.getElementById('csv-scope').checked;
+      const includeActivities = document.getElementById('csv-activities').checked;
+      const includeMaterials = document.getElementById('csv-materials').checked;
+      
+      let csv = '';
+      
+      if (includeScope) {
+        csv += 'Tag Number,Description,Status,Priority,Discipline,System\n';
+        scopeItems.forEach(item => {
+          csv += `"${item.tagNumber}","${item.description}","${item.status || 'In Scope'}","${item.priority || 'Medium'}","${item.discipline || ''}","${item.system || ''}"\n`;
+        });
+      }
+      
+      if (includeActivities) {
+        csv += '\nTag Number,Activity ID,Description,Phase,Duration,Status\n';
+        scopeItems.forEach(item => {
+          (item.plannedActivities || []).forEach(act => {
+            csv += `"${item.tagNumber}","${act.activityId}","${act.overrideDescription || ''}","${act.phase || 'TA'}","${act.duration || 0}","${act.executionStatus || 'Not Started'}"\n`;
+          });
+        });
+      }
+      
+      if (includeMaterials) {
+        csv += '\nTag Number,Activity,Material,Quantity,Status\n';
+        scopeItems.forEach(item => {
+          (item.plannedActivities || []).forEach(act => {
+            (act.materials || []).forEach(mat => {
+              csv += `"${item.tagNumber}","${act.activityId}","${mat.materialId}","${mat.quantity || 1}","${mat.status || 'not_ordered'}"\n`;
+            });
+          });
+        });
+      }
+      
+      downloadFile(csv, `${project.name}-export-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+      logExport('CSV');
+    }
+
+    function exportHTML() {
+      const html = `<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>${project.name} - ChemPrep Rapport</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 40px; }
+    h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
+    h2 { color: #334155; margin-top: 30px; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th { background: #f1f5f9; padding: 12px; text-align: left; border: 1px solid #cbd5e1; }
+    td { padding: 10px; border: 1px solid #e2e8f0; }
+    .kpi { display: inline-block; margin: 10px; padding: 15px 25px; background: #eff6ff; border-radius: 8px; }
+    .kpi-value { font-size: 28px; font-weight: bold; color: #1e40af; }
+    .kpi-label { font-size: 12px; color: #64748b; }
+    @media print { body { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <h1>📦 ${project.name}</h1>
+  <p><strong>Rapport gegenereerd:</strong> ${new Date().toLocaleString('nl-NL')}</p>
+  
+  <h2>Overzicht</h2>
+  <div class="kpi">
+    <div class="kpi-value">${scopeItems.length}</div>
+    <div class="kpi-label">Werkpakketten</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">${scopeItems.reduce((s, i) => s + (i.plannedActivities || []).length, 0)}</div>
+    <div class="kpi-label">Activiteiten</div>
+  </div>
+  
+  <h2>Scope Items</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Tag</th>
+        <th>Omschrijving</th>
+        <th>Status</th>
+        <th>Discipline</th>
+        <th>Activiteiten</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${scopeItems.map(item => `
+        <tr>
+          <td><strong>${item.tagNumber}</strong></td>
+          <td>${item.description}</td>
+          <td>${item.status || 'In Scope'}</td>
+          <td>${item.discipline || '—'}</td>
+          <td>${(item.plannedActivities || []).length}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+  
+  <p style="margin-top: 40px; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+    Gegenereerd door ChemPrep v5.1 - Turnaround Management System
+  </p>
+</body>
+</html>`;
+      
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+      logExport('HTML');
+    }
+
+    function exportJSON() {
+      const backup = {
+        version: '5.1-modular',
+        project: project,
+        scopeItems: scopeItems,
+        exportedAt: new Date().toISOString()
+      };
+      
+      downloadFile(
+        JSON.stringify(backup, null, 2),
+        `${project.name}-backup-${new Date().toISOString().split('T')[0]}.json`,
+        'application/json'
+      );
+      logExport('JSON Backup');
+    }
+
+    function exportP6() {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Project>
+  <Name>${project.name}</Name>
+  <StartDate>${project.startDate}</StartDate>
+  <FinishDate>${project.endDate}</FinishDate>
+  <Activities>
+    ${scopeItems.map(item => 
+      (item.plannedActivities || []).map(act => `
+    <Activity>
+      <Id>${item.tagNumber}-${act.activityId}</Id>
+      <Name>${act.overrideDescription || act.activityId}</Name>
+      <Duration>${act.duration || 0}</Duration>
+      <Status>${act.executionStatus || 'Not Started'}</Status>
+    </Activity>`).join('')
+    ).join('')}
+  </Activities>
+</Project>`;
+      
+      downloadFile(xml, `${project.name}-P6-${new Date().toISOString().split('T')[0]}.xml`, 'text/xml');
+      logExport('P6 XML');
+    }
+
+    function downloadFile(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function logExport(type) {
+      const log = {
+        type,
+        timestamp: new Date().toLocaleString('nl-NL'),
+        project: project.name
+      };
+      
+      // Show in recent exports
+      const recent = document.getElementById('recentExports');
+      recent.innerHTML = `
+        <div class="text-left p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">✓</span>
+            <div>
+              <div class="font-semibold text-emerald-700">${type} Export Succesvol</div>
+              <div class="text-xs text-gray-500">${log.timestamp}</div>
+            </div>
+          </div>
+        </div>
+      ` + (recent.innerHTML.includes('Nog geen') ? '' : recent.innerHTML);
+    }
+
+    init();
+  </script>
+</body>
+</html>

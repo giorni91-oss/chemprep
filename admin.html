@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">⚙️ Admin & Gebruikersbeheer</h1>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-6 border-b">
+      <button onclick="tab='users'; render()" id="tabUsers" class="px-4 py-2 font-medium">Gebruikers</button>
+      <button onclick="tab='changelog'; render()" id="tabChangelog" class="px-4 py-2 font-medium">Changelog</button>
+      <button onclick="tab='backup'; render()" id="tabBackup" class="px-4 py-2 font-medium">Backup & Restore</button>
+      <button onclick="tab='settings'; render()" id="tabSettings" class="px-4 py-2 font-medium">Instellingen</button>
+    </div>
+
+    <!-- Content -->
+    <div id="content"></div>
+  </div>
+
+  <!-- Add User Modal -->
+  <div id="userModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold">Gebruiker Toevoegen</h2>
+        <button onclick="closeUserModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Naam</label>
+          <input type="text" id="userName" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+          <input type="email" id="userEmail" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Rol</label>
+          <select id="userRole" class="w-full px-3 py-2 border rounded-lg">
+            <option value="Planner">Planner</option>
+            <option value="Engineer">Engineer</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button onclick="closeUserModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">Annuleren</button>
+        <button onclick="saveUser()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let tab = 'users';
+    let users = [];
+
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('admin');
+      
+      users = ChemPrepDB.getUsers();
+      render();
+    }
+
+    function render() {
+      // Tab buttons
+      ['users', 'changelog', 'backup', 'settings'].forEach(t => {
+        document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`).className =
+          `px-4 py-2 font-medium ${tab === t ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`;
+      });
+
+      const content = document.getElementById('content');
+
+      if (tab === 'users') {
+        content.innerHTML = `
+          <div class="bg-white rounded-xl border shadow-sm p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-gray-900">Gebruikers</h3>
+              <button onclick="addUser()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">➕ Gebruiker</button>
+            </div>
+            ${users.length === 0 ? `
+              <p class="text-center text-gray-400 py-8">Geen gebruikers</p>
+            ` : `
+              <div class="space-y-2">
+                ${users.map(u => `
+                  <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                    <div class="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+                      ${u.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="flex-1">
+                      <div class="font-medium text-gray-900">${u.name}</div>
+                      <div class="text-xs text-gray-500">${u.email || '—'}</div>
+                    </div>
+                    <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">${u.role || 'Planner'}</span>
+                    <button onclick="deleteUser('${u.id}')" class="p-2 hover:bg-red-50 rounded text-red-600 text-sm">🗑️</button>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+        `;
+      } else if (tab === 'changelog') {
+        const log = JSON.parse(localStorage.getItem('chemprep_changelog') || '[]');
+        content.innerHTML = `
+          <div class="bg-white rounded-xl border shadow-sm p-5">
+            <h3 class="font-semibold text-gray-900 mb-4">Changelog</h3>
+            ${log.length === 0 ? `
+              <p class="text-center text-gray-400 py-8">Geen activiteiten gelogd</p>
+            ` : `
+              <div class="space-y-2">
+                ${log.slice(0,50).map(entry => `
+                  <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg text-sm">
+                    <span class="text-lg">${entry.action === 'create' ? '➕' : entry.action === 'delete' ? '🗑️' : '✏️'}</span>
+                    <div class="flex-1">
+                      <div class="font-medium text-gray-900">${entry.description}</div>
+                      <div class="text-xs text-gray-500 mt-1">${new Date(entry.timestamp).toLocaleString('nl-NL')}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+        `;
+      } else if (tab === 'backup') {
+        content.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-xl border shadow-sm p-6">
+              <h3 class="font-semibold text-gray-900 mb-3">📤 Exporteer Backup</h3>
+              <p class="text-sm text-gray-600 mb-4">Download alle ChemPrep data als JSON bestand.</p>
+              <button onclick="exportBackup()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium w-full">
+                Download Backup
+              </button>
+            </div>
+
+            <div class="bg-white rounded-xl border shadow-sm p-6">
+              <h3 class="font-semibold text-gray-900 mb-3">📥 Importeer Backup</h3>
+              <p class="text-sm text-gray-600 mb-4">Restore data van een eerder gemaakte backup.</p>
+              <button onclick="importBackup()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium w-full">
+                Selecteer Backup Bestand
+              </button>
+            </div>
+
+            <div class="bg-white rounded-xl border shadow-sm p-6">
+              <h3 class="font-semibold text-gray-900 mb-3">🗑️ Reset Data</h3>
+              <p class="text-sm text-gray-600 mb-4">Verwijder ALLE data. Kan niet ongedaan gemaakt worden!</p>
+              <button onclick="clearAll()" class="px-4 py-2 bg-red-600 text-white rounded-lg font-medium w-full">
+                Alles Wissen
+              </button>
+            </div>
+
+            <div class="bg-white rounded-xl border shadow-sm p-6">
+              <h3 class="font-semibold text-gray-900 mb-3">💾 Storage Info</h3>
+              <div class="text-sm text-gray-700 space-y-2">
+                <div>Projecten: ${ChemPrepDB.getProjects().length}</div>
+                <div>Scope items: ${ChemPrepDB.getScopeItems().length}</div>
+                <div>Materialen: ${ChemPrepDB.getMaterials().length}</div>
+                <div>Gebruikers: ${users.length}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        content.innerHTML = `
+          <div class="bg-white rounded-xl border shadow-sm p-6">
+            <h3 class="font-semibold text-gray-900 mb-4">Instellingen</h3>
+            <div class="space-y-4">
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900">ChemPrep Versie</div>
+                  <div class="text-xs text-gray-500">v5.1 Modular</div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900">Data Storage</div>
+                  <div class="text-xs text-gray-500">localStorage (browser)</div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <div class="font-medium text-gray-900">Laatst opgeslagen</div>
+                  <div class="text-xs text-gray-500">${new Date().toLocaleString('nl-NL')}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function addUser() {
+      document.getElementById('userModal').classList.remove('hidden');
+      document.getElementById('userName').value = '';
+      document.getElementById('userEmail').value = '';
+      document.getElementById('userRole').value = 'Planner';
+    }
+
+    function closeUserModal() {
+      document.getElementById('userModal').classList.add('hidden');
+    }
+
+    function saveUser() {
+      const name = document.getElementById('userName').value.trim();
+      const email = document.getElementById('userEmail').value.trim();
+      const role = document.getElementById('userRole').value;
+      
+      if (!name) {
+        alert('Naam is verplicht');
+        return;
+      }
+
+      users.push({
+        id: 'user-' + Date.now(),
+        name,
+        email,
+        role
+      });
+
+      ChemPrepDB.saveUsers(users);
+      closeUserModal();
+      render();
+    }
+
+    function deleteUser(id) {
+      if (!confirm('Gebruiker verwijderen?')) return;
+      users = users.filter(u => u.id !== id);
+      ChemPrepDB.saveUsers(users);
+      render();
+    }
+
+    function exportBackup() {
+      const backup = ChemPrepDB.exportAll();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chemprep-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importBackup() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const backup = JSON.parse(e.target.result);
+            if (!confirm('Huidige data wordt overschreven!\n\nDoorgaan?')) return;
+            
+            ChemPrepDB.importAll(backup);
+            alert('✅ Backup geïmporteerd!');
+            location.reload();
+          } catch (err) {
+            alert('❌ Fout: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    function clearAll() {
+      if (!confirm('ALLE data wordt verwijderd!\n\nWeet je het zeker?')) return;
+      if (!confirm('Dit kan niet ongedaan worden!\n\nDoorgaan?')) return;
+      
+      ChemPrepDB.clearAll();
+      alert('✅ Data gewist');
+      location.href = 'index.html';
+    }
+
+    init();
+  </script>
+</body>
+</html>

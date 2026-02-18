@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - T.R.A. Overzicht</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">⚠️ T.R.A. Overzicht</h1>
+
+    <!-- Risk Matrix -->
+    <div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
+      <h3 class="font-semibold text-gray-900 mb-4">Risico Matrix</h3>
+      <div id="matrix" class="overflow-x-auto"></div>
+    </div>
+
+    <!-- Critical Risks -->
+    <div class="bg-white rounded-xl border shadow-sm p-5">
+      <h3 class="font-semibold text-gray-900 mb-4">Kritieke Risico's (Score ≥ 15)</h3>
+      <div id="critical"></div>
+    </div>
+  </div>
+
+  <script>
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('tra');
+      
+      const scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      
+      // Collect all risks
+      const allRisks = [];
+      scopeItems.forEach(item => {
+        (item.plannedActivities || []).forEach(act => {
+          if (act.tra && act.tra.risks) {
+            act.tra.risks.forEach(risk => {
+              allRisks.push({
+                ...risk,
+                itemTag: item.tagNumber,
+                actId: act.activityId,
+                actDesc: act.overrideDescription
+              });
+            });
+          }
+        });
+      });
+
+      // Matrix
+      const matrix = Array(5).fill(0).map(() => Array(5).fill(0));
+      allRisks.forEach(r => {
+        const p = Math.min(4, Math.max(0, (r.probability || 1) - 1));
+        const s = Math.min(4, Math.max(0, (r.severity || 1) - 1));
+        matrix[4-s][p]++;
+      });
+
+      const severityLabels = ['Catastrofaal', 'Ernstig', 'Gemiddeld', 'Klein', 'Verwaarloosbaar'];
+      const probLabels = ['Zeldzaam', 'Onwaarschijnlijk', 'Mogelijk', 'Waarschijnlijk', 'Zeer waarschijnlijk'];
+
+      document.getElementById('matrix').innerHTML = `
+        <table class="w-full text-xs border-collapse">
+          <thead>
+            <tr>
+              <th class="border p-2 bg-gray-50"></th>
+              ${probLabels.map(l => `<th class="border p-2 bg-gray-50">${l}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${matrix.map((row, si) => `
+              <tr>
+                <td class="border p-2 bg-gray-50 font-semibold">${severityLabels[si]}</td>
+                ${row.map((count, pi) => {
+                  const score = (5-si) * (pi+1);
+                  const color = score >= 15 ? 'bg-red-100 text-red-800' : score >= 8 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800';
+                  return `<td class="border p-3 text-center font-bold ${color}">${count || ''}</td>`;
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      // Critical risks
+      const critical = allRisks.filter(r => (r.probability || 1) * (r.severity || 1) >= 15);
+      
+      document.getElementById('critical').innerHTML = critical.length === 0 ? `
+        <div class="text-center py-8 text-gray-400">
+          <p class="text-4xl mb-2">✅</p>
+          <p>Geen kritieke risico's</p>
+        </div>
+      ` : `
+        <div class="space-y-3">
+          ${critical.map(r => {
+            const score = (r.probability || 1) * (r.severity || 1);
+            return `
+              <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div class="flex items-start gap-3">
+                  <span class="px-2 py-1 bg-red-600 text-white rounded font-bold text-xs">Score: ${score}</span>
+                  <div class="flex-1">
+                    <div class="font-mono text-xs text-blue-600 mb-1">${r.itemTag} / ${r.actId}</div>
+                    <div class="font-semibold text-gray-900 mb-2">${r.description || 'Risico'}</div>
+                    ${r.measure ? `<div class="text-sm text-gray-700"><strong>Maatregel:</strong> ${r.measure}</div>` : '<div class="text-sm text-amber-700">⚠️ Geen maatregel gedefinieerd</div>'}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    init();
+  </script>
+</body>
+</html>

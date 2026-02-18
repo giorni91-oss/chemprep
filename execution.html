@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Uitvoering</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">🔧 Uitvoering & Status Updates</h1>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6" id="stats"></div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl border shadow-sm p-4 mb-4 flex gap-3 flex-wrap">
+      <select id="statusFilter" onchange="render()" class="px-3 py-2 border rounded-lg text-sm">
+        <option value="all">Alle statussen</option>
+        <option value="Not Started">Not Started</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Completed">Completed</option>
+        <option value="On Hold">On Hold</option>
+      </select>
+      <select id="disciplineFilter" onchange="render()" class="px-3 py-2 border rounded-lg text-sm">
+        <option value="all">Alle disciplines</option>
+      </select>
+      <input type="text" id="searchBox" placeholder="🔍 Zoek tag/activity..." onkeyup="render()" 
+        class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-0">
+      <button onclick="view='list'; render()" id="btnList" class="px-3 py-2 border rounded-lg text-sm">📋 Lijst</button>
+      <button onclick="view='cards'; render()" id="btnCards" class="px-3 py-2 border rounded-lg text-sm">▦ Cards</button>
+    </div>
+
+    <!-- Content -->
+    <div id="content"></div>
+  </div>
+
+  <!-- Update Modal -->
+  <div id="updateModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold" id="modalTitle">Status Updaten</h2>
+        <button onclick="closeUpdateModal()" class="p-2 hover:bg-gray-100 rounded-lg">✕</button>
+      </div>
+      <div class="mb-4 p-3 bg-blue-50 rounded-lg">
+        <div class="font-mono text-sm font-bold text-blue-700" id="activityInfo"></div>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Status</label>
+          <select id="newStatus" class="w-full px-3 py-2 border rounded-lg">
+            <option value="Not Started">Not Started</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">✓ Completed</option>
+            <option value="On Hold">On Hold</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">% Gereed</label>
+          <input type="number" id="newProgress" min="0" max="100" class="w-full px-3 py-2 border rounded-lg">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1">Opmerkingen</label>
+          <textarea id="newNotes" rows="3" class="w-full px-3 py-2 border rounded-lg" placeholder="Notities..."></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button onclick="closeUpdateModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">Annuleren</button>
+        <button onclick="saveUpdate()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let scopeItems = [];
+    let view = 'list';
+    let currentActivity = null;
+
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('execution');
+      
+      scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      
+      // Populate discipline filter
+      const disciplines = new Set(scopeItems.map(i => i.discipline).filter(Boolean));
+      const filter = document.getElementById('disciplineFilter');
+      filter.innerHTML = '<option value="all">Alle disciplines</option>' +
+        Array.from(disciplines).map(d => `<option value="${d}">${d}</option>`).join('');
+      
+      render();
+    }
+
+    function getAllActivities() {
+      const all = [];
+      scopeItems.forEach(item => {
+        (item.plannedActivities || []).forEach(act => {
+          all.push({
+            ...act,
+            itemId: item.id,
+            itemTag: item.tagNumber,
+            itemDesc: item.description,
+            discipline: item.discipline
+          });
+        });
+      });
+      return all;
+    }
+
+    function getFiltered() {
+      const statusFilter = document.getElementById('statusFilter').value;
+      const discFilter = document.getElementById('disciplineFilter').value;
+      const search = document.getElementById('searchBox').value.toLowerCase();
+      
+      return getAllActivities().filter(act => {
+        if (statusFilter !== 'all' && act.executionStatus !== statusFilter) return false;
+        if (discFilter !== 'all' && act.discipline !== discFilter) return false;
+        if (search && !act.itemTag.toLowerCase().includes(search) && 
+            !act.activityId.toLowerCase().includes(search)) return false;
+        return true;
+      });
+    }
+
+    function render() {
+      const all = getAllActivities();
+      const filtered = getFiltered();
+      
+      // Stats
+      const statuses = {
+        'Not Started': 0,
+        'In Progress': 0,
+        'Completed': 0,
+        'On Hold': 0,
+        total: all.length
+      };
+      all.forEach(a => {
+        const status = a.executionStatus || 'Not Started';
+        if (statuses[status] !== undefined) statuses[status]++;
+      });
+      
+      const pct = all.length > 0 ? Math.round((statuses.Completed / all.length) * 100) : 0;
+      
+      document.getElementById('stats').innerHTML = [
+        { label: 'Totaal', value: statuses.total, color: 'text-slate-700', bg: 'bg-slate-50' },
+        { label: 'Not Started', value: statuses['Not Started'], color: 'text-gray-700', bg: 'bg-gray-100' },
+        { label: 'In Progress', value: statuses['In Progress'], color: 'text-blue-700', bg: 'bg-blue-50' },
+        { label: 'Completed', value: statuses['Completed'], color: 'text-emerald-700', bg: 'bg-emerald-50' },
+        { label: 'Voortgang', value: `${pct}%`, color: 'text-purple-700', bg: 'bg-purple-50' }
+      ].map(s => `
+        <div class="${s.bg} rounded-xl p-4 border">
+          <div class="text-xs text-gray-500 mb-1">${s.label}</div>
+          <div class="text-2xl font-bold ${s.color}">${s.value}</div>
+        </div>
+      `).join('');
+
+      // View buttons
+      ['list', 'cards'].forEach(v => {
+        document.getElementById(`btn${v.charAt(0).toUpperCase() + v.slice(1)}`).className =
+          `px-3 py-2 border rounded-lg text-sm ${view === v ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50'}`;
+      });
+
+      const content = document.getElementById('content');
+      
+      if (filtered.length === 0) {
+        content.innerHTML = `
+          <div class="bg-white rounded-xl p-12 text-center border">
+            <p class="text-6xl mb-4">🔧</p>
+            <p class="text-gray-400">Geen activiteiten gevonden</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (view === 'list') {
+        const statusColors = {
+          'Not Started': 'bg-gray-100 text-gray-700',
+          'In Progress': 'bg-blue-100 text-blue-700',
+          'Completed': 'bg-emerald-100 text-emerald-700',
+          'On Hold': 'bg-amber-100 text-amber-700'
+        };
+
+        content.innerHTML = `
+          <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 border-b">
+                <tr>
+                  <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500">Tag</th>
+                  <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500">Activity</th>
+                  <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500">Fase</th>
+                  <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500">Status</th>
+                  <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500">Progress</th>
+                  <th class="px-4 py-3 w-16"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">
+                ${filtered.map(act => {
+                  const statusClass = statusColors[act.executionStatus || 'Not Started'];
+                  const progress = act.executionProgress || 0;
+                  return `
+                    <tr class="hover:bg-gray-50">
+                      <td class="px-4 py-3 font-mono font-bold text-blue-600">${act.itemTag}</td>
+                      <td class="px-4 py-3">
+                        <div class="font-medium text-gray-800">${act.activityId}</div>
+                        <div class="text-xs text-gray-500">${act.overrideDescription || ''}</div>
+                      </td>
+                      <td class="px-4 py-3 text-gray-600 text-xs">${act.phase || 'TA'}</td>
+                      <td class="px-4 py-3 text-center">
+                        <span class="px-2 py-1 rounded-full text-xs font-bold ${statusClass}">${act.executionStatus || 'Not Started'}</span>
+                      </td>
+                      <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                          <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-blue-400 to-blue-600" style="width:${progress}%"></div>
+                          </div>
+                          <span class="text-xs font-semibold text-gray-600 w-10 text-right">${progress}%</span>
+                        </div>
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <button onclick='updateStatus(${JSON.stringify(act).replace(/'/g, "\\'")})'
+                          class="p-1.5 hover:bg-blue-50 rounded text-blue-600 text-sm">📝</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } else {
+        content.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${filtered.map(act => {
+              const progress = act.executionProgress || 0;
+              const statusIcons = {
+                'Not Started': '○',
+                'In Progress': '◐',
+                'Completed': '●',
+                'On Hold': '⏸'
+              };
+              const statusColors = {
+                'Not Started': 'text-gray-400',
+                'In Progress': 'text-blue-600',
+                'Completed': 'text-emerald-600',
+                'On Hold': 'text-amber-600'
+              };
+              const icon = statusIcons[act.executionStatus || 'Not Started'];
+              const color = statusColors[act.executionStatus || 'Not Started'];
+              
+              return `
+                <div class="bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-lg transition">
+                  <div class="h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+                  <div class="p-5">
+                    <div class="flex items-start justify-between mb-3">
+                      <div>
+                        <div class="font-mono text-xs text-blue-600 mb-1">${act.itemTag}</div>
+                        <div class="font-bold text-gray-900">${act.activityId}</div>
+                      </div>
+                      <span class="text-3xl ${color}">${icon}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-3 line-clamp-2">${act.overrideDescription || '—'}</p>
+                    <div class="text-xs text-gray-500 mb-3">
+                      <div>Fase: ${act.phase || 'TA'}</div>
+                      ${act.duration ? `<div>Duur: ${act.duration} dagen</div>` : ''}
+                    </div>
+                    <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+                      <div class="h-full bg-gradient-to-r from-blue-400 to-blue-600" style="width:${progress}%"></div>
+                    </div>
+                    <div class="flex items-center justify-between mb-3">
+                      <span class="text-xs text-gray-500">${progress}% gereed</span>
+                      <span class="text-xs font-semibold ${color}">${act.executionStatus || 'Not Started'}</span>
+                    </div>
+                    <button onclick='updateStatus(${JSON.stringify(act).replace(/'/g, "\\'")})' 
+                      class="w-full px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-medium">
+                      📝 Update Status
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+    }
+
+    function updateStatus(activity) {
+      currentActivity = activity;
+      document.getElementById('modalTitle').textContent = 'Status Updaten';
+      document.getElementById('activityInfo').textContent = `${activity.itemTag} / ${activity.activityId}`;
+      document.getElementById('newStatus').value = activity.executionStatus || 'Not Started';
+      document.getElementById('newProgress').value = activity.executionProgress || 0;
+      document.getElementById('newNotes').value = activity.executionNotes || '';
+      document.getElementById('updateModal').classList.remove('hidden');
+    }
+
+    function closeUpdateModal() {
+      document.getElementById('updateModal').classList.add('hidden');
+      currentActivity = null;
+    }
+
+    function saveUpdate() {
+      if (!currentActivity) return;
+      
+      const newStatus = document.getElementById('newStatus').value;
+      const newProgress = parseInt(document.getElementById('newProgress').value) || 0;
+      const newNotes = document.getElementById('newNotes').value;
+      
+      // Update in scopeItems
+      scopeItems = scopeItems.map(item => {
+        if (item.id !== currentActivity.itemId) return item;
+        return {
+          ...item,
+          plannedActivities: (item.plannedActivities || []).map(act => {
+            if (act.activityId !== currentActivity.activityId) return act;
+            return {
+              ...act,
+              executionStatus: newStatus,
+              executionProgress: newProgress,
+              executionNotes: newNotes,
+              lastUpdated: new Date().toISOString()
+            };
+          })
+        };
+      });
+
+      // Save to DB
+      const allScope = ChemPrepDB.getScopeItems().filter(i => i.projectId !== scopeItems[0]?.projectId);
+      ChemPrepDB.saveScopeItems([...allScope, ...scopeItems]);
+      
+      closeUpdateModal();
+      render();
+    }
+
+    init();
+  </script>
+</body>
+</html>

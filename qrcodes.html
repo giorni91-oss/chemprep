@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - QR Codes</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-7xl mx-auto p-6">
+    <div class="mb-6 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">🔳 QR Code Generator</h1>
+        <p class="text-gray-500 text-sm mt-1" id="subtitle"></p>
+      </div>
+      <button onclick="printAll()" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
+        🖨️ Afdrukken (<span id="selectedCount">0</span>)
+      </button>
+    </div>
+
+    <div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
+      <h3 class="font-semibold text-gray-900 mb-3">Afdruk instellingen</h3>
+      <div class="flex gap-6">
+        <label class="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" id="showTag" checked onchange="render()" class="accent-blue-600">
+          Tag nummer
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" id="showDesc" checked onchange="render()" class="accent-blue-600">
+          Omschrijving
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer text-sm">
+          <input type="checkbox" id="showProject" checked onchange="render()" class="accent-blue-600">
+          Project naam
+        </label>
+      </div>
+    </div>
+
+    <div class="flex gap-3 mb-4">
+      <button onclick="selectAll()" class="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50">Alles selecteren</button>
+      <button onclick="clearAll()" class="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50">Selectie wissen</button>
+    </div>
+
+    <div id="grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+  </div>
+
+  <script>
+    let scopeItems = [];
+    let selected = new Set();
+    let project = null;
+
+    function init() {
+      project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('qrcodes');
+      scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      
+      document.getElementById('subtitle').textContent = `${scopeItems.length} werkpakketten beschikbaar`;
+      render();
+    }
+
+    function generateQRSVG(text, size = 120) {
+      // Simplified QR pattern generator (deterministic from text hash)
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) - hash) + text.charCodeAt(i);
+        hash |= 0;
+      }
+      
+      const modules = 21;
+      const cellSize = Math.floor(size / modules);
+      const cells = [];
+      
+      // Finder patterns
+      const finder = (ox, oy) => {
+        for (let r = 0; r < 7; r++) {
+          for (let c = 0; c < 7; c++) {
+            const border = r === 0 || r === 6 || c === 0 || c === 6;
+            const inner = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+            if (border || inner) cells.push({ r: oy + r, c: ox + c });
+          }
+        }
+      };
+      finder(0, 0);
+      finder(14, 0);
+      finder(0, 14);
+      
+      // Data modules
+      for (let r = 0; r < modules; r++) {
+        for (let c = 0; c < modules; c++) {
+          const isFinder = (r < 8 && c < 8) || (r < 8 && c > 12) || (r > 12 && c < 8);
+          const isTiming = r === 6 || c === 6;
+          if (!isFinder && !isTiming) {
+            const bit = (Math.abs(hash * (r + 1) * 31 + c * 17 + r * c) % 3) === 0;
+            if (bit) cells.push({ r, c });
+          }
+        }
+      }
+      
+      const rects = cells.map(({ r, c }) =>
+        `<rect x="${c * cellSize}" y="${r * cellSize}" width="${cellSize}" height="${cellSize}" fill="black"/>`
+      ).join('');
+      
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <rect width="${size}" height="${size}" fill="white"/>
+        ${rects}
+      </svg>`;
+    }
+
+    function render() {
+      const showTag = document.getElementById('showTag').checked;
+      const showDesc = document.getElementById('showDesc').checked;
+      const showProject = document.getElementById('showProject').checked;
+      
+      document.getElementById('selectedCount').textContent = selected.size;
+      
+      const grid = document.getElementById('grid');
+      grid.innerHTML = scopeItems.map(item => {
+        const isSelected = selected.has(item.id);
+        const acts = item.plannedActivities || [];
+        const done = acts.filter(a => a.executionStatus === 'Completed').length;
+        const pct = acts.length > 0 ? Math.round((done / acts.length) * 100) : 0;
+        const qrSvg = generateQRSVG(item.tagNumber, 120);
+        
+        return `
+          <div onclick="toggle('${item.id}')" 
+            class="bg-white rounded-xl border-2 cursor-pointer transition p-4 text-center hover:shadow-md ${isSelected ? 'border-blue-500 shadow-md bg-blue-50' : 'border-gray-200'}">
+            <div class="flex justify-end mb-1">
+              <div class="w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}">
+                ${isSelected ? '<div class="w-3 h-3 bg-white rounded-full"></div>' : ''}
+              </div>
+            </div>
+            <div class="flex justify-center mb-2">${qrSvg}</div>
+            ${showTag ? `<p class="font-mono font-black text-sm text-blue-600">${item.tagNumber}</p>` : ''}
+            ${showDesc ? `<p class="text-xs text-gray-500 mt-0.5 truncate">${item.description}</p>` : ''}
+            ${showProject ? `<p class="text-xs text-gray-400 mt-1">${project.name}</p>` : ''}
+            <div class="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-400 rounded-full" style="width:${pct}%"></div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">${pct}% klaar</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggle(id) {
+      if (selected.has(id)) selected.delete(id);
+      else selected.add(id);
+      render();
+    }
+
+    function selectAll() {
+      selected = new Set(scopeItems.map(i => i.id));
+      render();
+    }
+
+    function clearAll() {
+      selected.clear();
+      render();
+    }
+
+    function printAll() {
+      const items = selected.size > 0 
+        ? scopeItems.filter(i => selected.has(i.id))
+        : scopeItems;
+      
+      if (items.length === 0) {
+        alert('Selecteer eerst werkpakketten om af te drukken');
+        return;
+      }
+
+      const showTag = document.getElementById('showTag').checked;
+      const showDesc = document.getElementById('showDesc').checked;
+      const showProject = document.getElementById('showProject').checked;
+
+      const cards = items.map(item => {
+        const acts = item.plannedActivities || [];
+        const done = acts.filter(a => a.executionStatus === 'Completed').length;
+        const pct = acts.length > 0 ? Math.round((done / acts.length) * 100) : 0;
+        const qrSVG = generateQRSVG(item.tagNumber, 120);
+
+        return `
+          <div style="width:80mm;height:80mm;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;page-break-inside:avoid;text-align:center;">
+            ${qrSVG}
+            ${showTag ? `<div style="font-family:monospace;font-size:16px;font-weight:900;color:#1e40af;margin-top:6px">${item.tagNumber}</div>` : ''}
+            ${showDesc ? `<div style="font-size:10px;color:#374151;margin-top:2px;max-width:70mm;overflow:hidden">${item.description}</div>` : ''}
+            ${showProject ? `<div style="font-size:9px;color:#9ca3af;margin-top:2px">${project.name}</div>` : ''}
+            <div style="font-size:11px;font-weight:700;color:#059669;margin-top:4px">${pct}%</div>
+          </div>
+        `;
+      }).join('');
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>QR Codes — ${project.name}</title>
+<style>
+  body { font-family:-apple-system,sans-serif; margin:0; padding:12px; background:white; }
+  .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  @media print {
+    body { padding:4mm; }
+    .no-print { display:none; }
+    .grid { gap:4mm; }
+  }
+</style></head><body>
+  <div class="no-print" style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
+    <button onclick="window.print()" style="padding:8px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;cursor:pointer">🖨️ Afdrukken</button>
+    <span style="color:#64748b;font-size:13px">${items.length} QR codes · ${project.name}</span>
+  </div>
+  <div class="grid">${cards}</div>
+</body></html>`;
+
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+    }
+
+    init();
+  </script>
+</body>
+</html>

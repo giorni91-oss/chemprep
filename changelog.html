@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Changelog</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-5xl mx-auto p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">📜 Changelog</h1>
+        <p class="text-gray-500 text-sm mt-1">Activiteitenlog & versiegeschiedenis</p>
+      </div>
+      <button onclick="clearLog()" class="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">
+        🗑️ Wis Log
+      </button>
+    </div>
+
+    <!-- Version Info -->
+    <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-6 mb-6 text-white">
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center text-3xl">📦</div>
+        <div>
+          <h2 class="text-2xl font-bold">ChemPrep v5.1 Modular</h2>
+          <p class="text-white/90 text-sm">Turnaround Management System</p>
+          <p class="text-white/70 text-xs mt-1">Released: Februari 2026</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- What's New -->
+    <div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
+      <h3 class="font-semibold text-gray-900 mb-4">✨ Nieuw in v5.1</h3>
+      <div class="space-y-3">
+        <div class="flex gap-3">
+          <span class="text-2xl">📦</span>
+          <div>
+            <div class="font-medium text-gray-900">Material Management</div>
+            <div class="text-sm text-gray-600">Complete materiaal tracking met status updates, catalogus en bestellingen</div>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <span class="text-2xl">🔳</span>
+          <div>
+            <div class="font-medium text-gray-900">QR Code Generator</div>
+            <div class="text-sm text-gray-600">Genereer en print QR codes voor werkpakket labels</div>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <span class="text-2xl">🚀</span>
+          <div>
+            <div class="font-medium text-gray-900">Modulaire Architectuur</div>
+            <div class="text-sm text-gray-600">Elke module laadt apart voor 100x snellere performance op tablets</div>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <span class="text-2xl">📊</span>
+          <div>
+            <div class="font-medium text-gray-900">Wallboard Mode</div>
+            <div class="text-sm text-gray-600">Groot scherm dashboard met dark mode en auto-refresh</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="bg-white rounded-xl border shadow-sm p-5">
+      <h3 class="font-semibold text-gray-900 mb-4">Activiteitenlog</h3>
+      <div id="activityLog"></div>
+    </div>
+
+    <!-- Version History -->
+    <div class="bg-white rounded-xl border shadow-sm p-5 mt-6">
+      <h3 class="font-semibold text-gray-900 mb-4">Versie Geschiedenis</h3>
+      <div class="space-y-4">
+        <div class="border-l-4 border-blue-500 pl-4">
+          <div class="font-bold text-gray-900">v5.1 Modular <span class="text-xs font-normal text-emerald-600 ml-2">● Current</span></div>
+          <div class="text-xs text-gray-500">Februari 2026</div>
+          <ul class="text-sm text-gray-600 mt-2 space-y-1">
+            <li>• Material Management module</li>
+            <li>• QR Code Generator</li>
+            <li>• Modulaire architectuur (14 losse modules)</li>
+            <li>• Tablet optimalisatie (100x sneller)</li>
+            <li>• Wallboard met dark mode</li>
+          </ul>
+        </div>
+        
+        <div class="border-l-4 border-gray-300 pl-4">
+          <div class="font-bold text-gray-900">v5.0</div>
+          <div class="text-xs text-gray-500">Februari 2026</div>
+          <ul class="text-sm text-gray-600 mt-2 space-y-1">
+            <li>• Print werkpakket (PDF formulier)</li>
+            <li>• Earned Value Management (EVM)</li>
+            <li>• Notificaties & alerts</li>
+            <li>• Predecessors + Critical Path (CPM)</li>
+            <li>• Backup & Restore</li>
+            <li>• Mobile responsive layout</li>
+          </ul>
+        </div>
+
+        <div class="border-l-4 border-gray-300 pl-4">
+          <div class="font-bold text-gray-900">v4.9</div>
+          <div class="text-xs text-gray-500">Februari 2026</div>
+          <ul class="text-sm text-gray-600 mt-2 space-y-1">
+            <li>• T.R.A. module met risicomatrix</li>
+            <li>• S-Curve voortgangsgrafiek</li>
+            <li>• Progress tracking tab</li>
+            <li>• Kostenbeheer calculator</li>
+          </ul>
+        </div>
+
+        <div class="border-l-4 border-gray-300 pl-4">
+          <div class="font-bold text-gray-900">v4.0-4.8</div>
+          <div class="text-xs text-gray-500">Januari-Februari 2026</div>
+          <ul class="text-sm text-gray-600 mt-2 space-y-1">
+            <li>• Editable Activity IDs met auto-reorder</li>
+            <li>• Phase-based activity grouping</li>
+            <li>• Resource calculation system</li>
+            <li>• Dashboard met KPIs</li>
+            <li>• Document management</li>
+            <li>• Export naar CSV/HTML/P6</li>
+          </ul>
+        </div>
+
+        <div class="border-l-4 border-gray-300 pl-4">
+          <div class="font-bold text-gray-900">v1.0-3.0</div>
+          <div class="text-xs text-gray-500">December 2025 - Januari 2026</div>
+          <ul class="text-sm text-gray-600 mt-2 space-y-1">
+            <li>• Initial release</li>
+            <li>• Scope Manager</li>
+            <li>• Planning & Gantt</li>
+            <li>• Basic activity tracking</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('changelog');
+      
+      renderLog();
+    }
+
+    function renderLog() {
+      const log = JSON.parse(localStorage.getItem('chemprep_changelog') || '[]');
+      const logDiv = document.getElementById('activityLog');
+      
+      if (log.length === 0) {
+        logDiv.innerHTML = '<p class="text-center text-gray-400 py-8">Geen activiteiten gelogd</p>';
+        return;
+      }
+
+      // Group by date
+      const byDate = {};
+      log.forEach(entry => {
+        const date = new Date(entry.timestamp).toLocaleDateString('nl-NL');
+        if (!byDate[date]) byDate[date] = [];
+        byDate[date].push(entry);
+      });
+
+      logDiv.innerHTML = Object.entries(byDate).map(([date, entries]) => `
+        <div class="mb-6">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="h-px flex-1 bg-gray-200"></div>
+            <div class="text-xs font-semibold text-gray-500">${date}</div>
+            <div class="h-px flex-1 bg-gray-200"></div>
+          </div>
+          <div class="space-y-2">
+            ${entries.map(entry => {
+              const icons = {
+                create: '➕',
+                delete: '🗑️',
+                update: '✏️',
+                import: '📥',
+                export: '📤'
+              };
+              const colors = {
+                create: 'bg-emerald-50 border-emerald-200',
+                delete: 'bg-red-50 border-red-200',
+                update: 'bg-blue-50 border-blue-200',
+                import: 'bg-purple-50 border-purple-200',
+                export: 'bg-amber-50 border-amber-200'
+              };
+              const icon = icons[entry.action] || '•';
+              const color = colors[entry.action] || 'bg-gray-50 border-gray-200';
+              
+              return `
+                <div class="flex items-start gap-3 p-3 ${color} border rounded-lg">
+                  <span class="text-lg">${icon}</span>
+                  <div class="flex-1">
+                    <div class="font-medium text-gray-900">${entry.description}</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                      ${new Date(entry.timestamp).toLocaleTimeString('nl-NL')}
+                      ${entry.type ? ` · ${entry.type}` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function clearLog() {
+      if (!confirm('Activiteitenlog wissen?\n\nDit kan niet ongedaan worden.')) return;
+      localStorage.setItem('chemprep_changelog', '[]');
+      renderLog();
+    }
+
+    init();
+  </script>
+</body>
+</html>

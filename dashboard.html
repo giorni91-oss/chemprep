@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">📊 Dashboard</h1>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="kpis"></div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Progress by discipline -->
+      <div class="bg-white rounded-xl border shadow-sm p-5">
+        <h3 class="font-semibold text-gray-900 mb-4">Voortgang per Discipline</h3>
+        <div id="disciplineChart"></div>
+      </div>
+
+      <!-- Status breakdown -->
+      <div class="bg-white rounded-xl border shadow-sm p-5">
+        <h3 class="font-semibold text-gray-900 mb-4">Status Verdeling</h3>
+        <div id="statusChart"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('dashboard');
+      
+      const scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      
+      // Calculate KPIs
+      const totalItems = scopeItems.length;
+      const totalActs = scopeItems.reduce((s, i) => s + (i.plannedActivities || []).length, 0);
+      const completedActs = scopeItems.reduce((s, i) => 
+        s + (i.plannedActivities || []).filter(a => a.executionStatus === 'Completed').length, 0);
+      const overallProgress = totalActs > 0 ? Math.round((completedActs / totalActs) * 100) : 0;
+      
+      const inScope = scopeItems.filter(i => i.status === 'In Scope').length;
+      const opHold = scopeItems.filter(i => i.status === 'Op Hold').length;
+      
+      // Render KPIs
+      document.getElementById('kpis').innerHTML = [
+        { label: 'Werkpakketten', value: totalItems, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { label: 'Activiteiten', value: totalActs, color: 'text-purple-600', bg: 'bg-purple-50' },
+        { label: 'Gereed', value: `${overallProgress}%`, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        { label: 'Op Hold', value: opHold, color: 'text-amber-600', bg: 'bg-amber-50' },
+      ].map(k => `
+        <div class="${k.bg} rounded-xl p-4 border border-gray-200">
+          <p class="text-xs text-gray-500 mb-1">${k.label}</p>
+          <p class="text-3xl font-bold ${k.color}">${k.value}</p>
+        </div>
+      `).join('');
+      
+      // Discipline breakdown
+      const disciplines = {};
+      scopeItems.forEach(item => {
+        const disc = item.discipline || 'Overig';
+        if (!disciplines[disc]) disciplines[disc] = { total: 0, completed: 0 };
+        const acts = item.plannedActivities || [];
+        const done = acts.filter(a => a.executionStatus === 'Completed').length;
+        disciplines[disc].total += acts.length;
+        disciplines[disc].completed += done;
+      });
+      
+      document.getElementById('disciplineChart').innerHTML = Object.entries(disciplines).map(([disc, data]) => {
+        const pct = data.total > 0 ? Math.round((data.completed / data.total) * 100) : 0;
+        return `
+          <div class="mb-3">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="font-medium text-gray-700">${disc}</span>
+              <span class="text-gray-500">${pct}% (${data.completed}/${data.total})</span>
+            </div>
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-600" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // Status breakdown
+      const statusCounts = {
+        'In Scope': inScope,
+        'Op Hold': opHold,
+        'Uit Scope': scopeItems.filter(i => i.status === 'Uit Scope').length
+      };
+      
+      document.getElementById('statusChart').innerHTML = Object.entries(statusCounts).map(([status, count]) => {
+        const pct = totalItems > 0 ? Math.round((count / totalItems) * 100) : 0;
+        const colors = {
+          'In Scope': 'bg-blue-500',
+          'Op Hold': 'bg-amber-500',
+          'Uit Scope': 'bg-gray-400'
+        };
+        return `
+          <div class="mb-3">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="font-medium text-gray-700">${status}</span>
+              <span class="text-gray-500">${count} (${pct}%)</span>
+            </div>
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full ${colors[status]}" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    init();
+  </script>
+</body>
+</html>

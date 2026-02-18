@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep - Planning</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="shared.js"></script>
+</head>
+<body class="bg-gray-50">
+  
+  <div id="nav"></div>
+  
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">📅 Planning & Timeline</h1>
+
+    <!-- Project Timeline -->
+    <div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
+      <h3 class="font-semibold text-gray-900 mb-4">Project Timeline</h3>
+      <div id="timeline"></div>
+    </div>
+
+    <!-- Activities by Phase -->
+    <div class="bg-white rounded-xl border shadow-sm p-5">
+      <h3 class="font-semibold text-gray-900 mb-4">Activiteiten per Fase</h3>
+      <div id="phases"></div>
+    </div>
+  </div>
+
+  <script>
+    const PHASES = ['PRE-TA', 'UITBEDRIJF', 'TA', 'INBEDRIJF', 'POST-TA'];
+    const PHASE_COLORS = {
+      'PRE-TA': 'bg-purple-100 text-purple-700 border-purple-200',
+      'UITBEDRIJF': 'bg-orange-100 text-orange-700 border-orange-200',
+      'TA': 'bg-blue-100 text-blue-700 border-blue-200',
+      'INBEDRIJF': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+      'POST-TA': 'bg-gray-100 text-gray-700 border-gray-200'
+    };
+
+    function init() {
+      const project = ChemPrepDB.getActiveProject();
+      if (!project) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('nav').innerHTML = ChemPrepNav.renderMenu('planning');
+      
+      const scopeItems = ChemPrepDB.getProjectScopeItems(project.id);
+      
+      // Timeline
+      const start = new Date(project.startDate || Date.now());
+      const end = new Date(project.endDate || Date.now());
+      const today = new Date();
+      const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      const elapsedDays = Math.ceil((today - start) / (1000 * 60 * 60 * 24));
+      const progressPct = totalDays > 0 ? Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100)) : 0;
+
+      document.getElementById('timeline').innerHTML = `
+        <div class="flex items-center gap-4 mb-3 text-sm">
+          <div><strong>Start:</strong> ${start.toLocaleDateString('nl-NL')}</div>
+          <div><strong>Eind:</strong> ${end.toLocaleDateString('nl-NL')}</div>
+          <div class="flex-1"></div>
+          <div><strong>Vandaag:</strong> ${today.toLocaleDateString('nl-NL')}</div>
+        </div>
+        <div class="relative h-8 bg-gray-100 rounded-full overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-600" style="width:${progressPct}%"></div>
+          <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" style="left:${progressPct}%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-gray-500 mt-2">
+          <span>Dag 0</span>
+          <span>Dag ${Math.floor(totalDays / 2)}</span>
+          <span>Dag ${totalDays}</span>
+        </div>
+      `;
+
+      // Activities by phase
+      const byPhase = {};
+      PHASES.forEach(p => { byPhase[p] = []; });
+      
+      scopeItems.forEach(item => {
+        (item.plannedActivities || []).forEach(act => {
+          const phase = act.phase || 'TA';
+          if (byPhase[phase]) byPhase[phase].push({ ...act, itemTag: item.tagNumber });
+        });
+      });
+
+      document.getElementById('phases').innerHTML = PHASES.map(phase => {
+        const acts = byPhase[phase] || [];
+        const completed = acts.filter(a => a.executionStatus === 'Completed').length;
+        const pct = acts.length > 0 ? Math.round((completed / acts.length) * 100) : 0;
+        
+        return `
+          <div class="mb-4 pb-4 border-b last:border-b-0">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-3">
+                <span class="px-3 py-1 rounded-full border text-sm font-bold ${PHASE_COLORS[phase]}">${phase}</span>
+                <span class="text-sm text-gray-500">${acts.length} activiteiten · ${pct}% gereed</span>
+              </div>
+              <div class="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-600" style="width:${pct}%"></div>
+              </div>
+            </div>
+            ${acts.length === 0 ? `
+              <p class="text-sm text-gray-400 text-center py-4">Geen activiteiten in deze fase</p>
+            ` : `
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                ${acts.map(a => `
+                  <div class="flex items-center gap-2 p-2 bg-gray-50 rounded text-xs">
+                    <span class="${a.executionStatus === 'Completed' ? 'text-emerald-600' : 'text-gray-400'}">${a.executionStatus === 'Completed' ? '✓' : '○'}</span>
+                    <span class="font-mono font-bold text-blue-600">${a.itemTag}</span>
+                    <span class="text-gray-600">${a.activityId}</span>
+                    <span class="flex-1 truncate text-gray-700">${a.overrideDescription || ''}</span>
+                    ${a.duration ? `<span class="text-gray-400">${a.duration}d</span>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+        `;
+      }).join('');
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChemPrep Test Panel v5.1</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .test-item { transition: all 0.2s; }
+    .test-item:hover { transform: translateX(4px); }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-blue-900 min-h-screen p-6">
+  
+  <div class="max-w-7xl mx-auto">
+    
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow-2xl p-8 mb-6">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-3xl text-white font-bold">
+          🧪
+        </div>
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">ChemPrep Test Panel v5.1</h1>
+          <p class="text-gray-500">Modulaire versie - Complete test suite</p>
+        </div>
+      </div>
+      
+      <!-- Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+        <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+          <div class="text-xs text-emerald-600 mb-1">Getest</div>
+          <div class="text-2xl font-bold text-emerald-700" id="testedCount">0</div>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <div class="text-xs text-blue-600 mb-1">Werkt</div>
+          <div class="text-2xl font-bold text-blue-700" id="passedCount">0</div>
+        </div>
+        <div class="bg-red-50 rounded-xl p-4 border border-red-200">
+          <div class="text-xs text-red-600 mb-1">Bugs</div>
+          <div class="text-2xl font-bold text-red-700" id="failedCount">0</div>
+        </div>
+        <div class="bg-amber-50 rounded-xl p-4 border border-amber-200">
+          <div class="text-xs text-amber-600 mb-1">Opmerkingen</div>
+          <div class="text-2xl font-bold text-amber-700" id="notesCount">0</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3 mt-6 flex-wrap">
+        <button onclick="resetAll()" class="px-4 py-2 bg-slate-600 text-white rounded-lg font-medium hover:bg-slate-700">
+          🔄 Reset Alles
+        </button>
+        <button onclick="exportResults()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700">
+          📥 Export Resultaten
+        </button>
+        <button onclick="saveProgress()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+          💾 Bewaar Voortgang
+        </button>
+        <button onclick="loadProgress()" class="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700">
+          📤 Laad Voortgang
+        </button>
+      </div>
+    </div>
+
+    <!-- Test Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="testGrid">
+      <!-- Filled by JavaScript -->
+    </div>
+
+    <!-- Overall Notes -->
+    <div class="bg-white rounded-2xl shadow-2xl p-8 mt-6">
+      <h3 class="text-xl font-bold text-gray-900 mb-4">📝 Algemene Opmerkingen</h3>
+      <textarea id="generalNotes" rows="4" 
+        class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+        placeholder="Algemene feedback, systeem-brede issues, feature requests..."></textarea>
+      <div class="flex gap-3 mt-3">
+        <button onclick="saveGeneralNotes()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">Opslaan</button>
+        <span id="saveNotification" class="text-sm text-emerald-600 font-medium opacity-0 transition-opacity">✓ Opgeslagen</span>
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="bg-white rounded-2xl shadow-2xl p-6 mt-6">
+      <h3 class="font-bold text-gray-900 mb-3">🔗 Snelkoppelingen</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+        <a href="index.html" target="_blank" class="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-center">
+          🏢 Projects
+        </a>
+        <a href="https://github.com/giorni91-oss/chemprep" target="_blank" class="px-3 py-2 bg-slate-50 text-slate-700 rounded-lg hover:bg-slate-100 text-center">
+          💾 GitHub Repo
+        </a>
+        <a href="https://giorni91-oss.github.io/chemprep/" target="_blank" class="px-3 py-2 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 text-center">
+          🌐 Live Site
+        </a>
+        <button onclick="window.print()" class="px-3 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100">
+          🖨️ Print Report
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Test Detail Modal -->
+  <div id="testModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-900" id="modalTitle">Module Test</h2>
+            <p class="text-sm text-gray-500 mt-1" id="modalFile"></p>
+          </div>
+          <button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+            <span class="text-2xl text-gray-400">✕</span>
+          </button>
+        </div>
+
+        <!-- Test Checklist -->
+        <div class="mb-6">
+          <h3 class="font-semibold text-gray-900 mb-3">✓ Test Checklist</h3>
+          <div id="checklist" class="space-y-2">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div class="mb-6">
+          <h3 class="font-semibold text-gray-900 mb-3">📊 Status</h3>
+          <div class="flex gap-3">
+            <button onclick="setStatus('pass')" id="statusPass" 
+              class="flex-1 px-4 py-3 border-2 rounded-xl font-medium transition-all">
+              ✅ Werkt Perfect
+            </button>
+            <button onclick="setStatus('fail')" id="statusFail"
+              class="flex-1 px-4 py-3 border-2 rounded-xl font-medium transition-all">
+              ❌ Bug Gevonden
+            </button>
+            <button onclick="setStatus('partial')" id="statusPartial"
+              class="flex-1 px-4 py-3 border-2 rounded-xl font-medium transition-all">
+              ⚠️ Gedeeltelijk
+            </button>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="mb-6">
+          <h3 class="font-semibold text-gray-900 mb-3">📝 Opmerkingen & Bugs</h3>
+          <textarea id="testNotes" rows="6" 
+            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
+            placeholder="Beschrijf bugs, verbeteringen, of opmerkingen...&#10;&#10;Bijvoorbeeld:&#10;- Bug: Knop werkt niet op mobiel&#10;- Feature request: Zoekfunctie toevoegen&#10;- Opmerking: Kleur te licht op tablet"></textarea>
+        </div>
+
+        <!-- Priority -->
+        <div class="mb-6">
+          <h3 class="font-semibold text-gray-900 mb-3">🎯 Prioriteit</h3>
+          <div class="flex gap-2">
+            <button onclick="setPriority('low')" id="prioLow" class="px-4 py-2 border rounded-lg text-sm">🟢 Laag</button>
+            <button onclick="setPriority('medium')" id="prioMedium" class="px-4 py-2 border rounded-lg text-sm">🟡 Gemiddeld</button>
+            <button onclick="setPriority('high')" id="prioHigh" class="px-4 py-2 border rounded-lg text-sm">🟠 Hoog</button>
+            <button onclick="setPriority('critical')" id="prioCritical" class="px-4 py-2 border rounded-lg text-sm">🔴 Kritiek</button>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3">
+          <button onclick="openModule()" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700">
+            🚀 Open Module
+          </button>
+          <button onclick="saveTest()" class="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700">
+            💾 Opslaan & Sluiten
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MODULES = [
+      {
+        id: 'shared',
+        name: 'Shared.js',
+        file: 'shared.js',
+        category: 'Core',
+        description: 'Database layer - localStorage functies',
+        checks: [
+          'ChemPrepDB functies beschikbaar',
+          'getProjects() werkt',
+          'saveProjects() werkt',
+          'Data persisteert na refresh',
+          'Geen console errors'
+        ]
+      },
+      {
+        id: 'index',
+        name: 'Project Selector',
+        file: 'index.html',
+        category: 'Core',
+        description: 'Homepage - project aanmaken/selecteren',
+        checks: [
+          'Pagina laadt zonder errors',
+          'Project aanmaken werkt',
+          'Project bewerken werkt',
+          'Project verwijderen werkt',
+          'Backup export werkt',
+          'Backup import werkt',
+          'Voortgang wordt getoond',
+          'Navigatie naar dashboard werkt'
+        ]
+      },
+      {
+        id: 'dashboard',
+        name: 'Dashboard',
+        file: 'dashboard.html',
+        category: 'Main',
+        description: 'KPI dashboard met statistieken',
+        checks: [
+          'KPI cards tonen correcte data',
+          'Voortgang per discipline werkt',
+          'Status verdeling correct',
+          'Grafieken renderen goed',
+          'Responsive op tablet'
+        ]
+      },
+      {
+        id: 'scope',
+        name: 'Scope Manager',
+        file: 'scope.html',
+        category: 'Main',
+        description: 'Werkpakketten beheren (CRUD)',
+        checks: [
+          'Werkpakket toevoegen werkt',
+          'Werkpakket bewerken werkt',
+          'Werkpakket verwijderen werkt',
+          'Lijst view werkt',
+          'Grid view werkt',
+          'Filters werken (status/discipline)',
+          'Zoekfunctie werkt',
+          'Data wordt opgeslagen'
+        ]
+      },
+      {
+        id: 'planning',
+        name: 'Planning',
+        file: 'planning.html',
+        category: 'Main',
+        description: 'Timeline & fase planning',
+        checks: [
+          'Project timeline toont correct',
+          'Activiteiten per fase tonen',
+          'Voortgang per fase correct',
+          'Fase kleuren kloppen',
+          'Responsive layout'
+        ]
+      },
+      {
+        id: 'materials',
+        name: 'Materials',
+        file: 'materials.html',
+        category: 'Main',
+        description: 'Material management',
+        checks: [
+          'Overview tab werkt',
+          'Catalog tab werkt',
+          'Orders tab werkt',
+          'Status update werkt',
+          'Materiaal toevoegen werkt',
+          'Order referentie opslaan werkt',
+          'KPI cards tonen correcte data'
+        ]
+      },
+      {
+        id: 'qrcodes',
+        name: 'QR Codes',
+        file: 'qrcodes.html',
+        category: 'Main',
+        description: 'QR code generator',
+        checks: [
+          'QR codes worden gegenereerd',
+          'QR codes zijn scanbaar',
+          'Selectie werkt',
+          'Print functie werkt',
+          'Info toggles werken',
+          'Preview accurate'
+        ]
+      },
+      {
+        id: 'documents',
+        name: 'Documents',
+        file: 'documents.html',
+        category: 'Main',
+        description: 'Document overzicht',
+        checks: [
+          'Documenten tonen correct',
+          'Tabel laadt zonder errors',
+          'Status kleuren correct',
+          'Gekoppeld aan scope items'
+        ]
+      },
+      {
+        id: 'tra',
+        name: 'T.R.A.',
+        file: 'tra.html',
+        category: 'Main',
+        description: 'Risico matrix',
+        checks: [
+          'Risico matrix toont correct',
+          'Kritieke risicos tonen',
+          'Score berekening klopt',
+          'Kleuren per severity correct'
+        ]
+      },
+      {
+        id: 'evm',
+        name: 'EVM',
+        file: 'evm.html',
+        category: 'Main',
+        description: 'Earned Value Management',
+        checks: [
+          'Metric cards tonen (BAC/PV/EV/AC)',
+          'CPI/SPI berekening klopt',
+          'Variances correct',
+          'Forecast metrics (ETC/EAC/VAC)'
+        ]
+      },
+      {
+        id: 'criticalpath',
+        name: 'Critical Path',
+        file: 'criticalpath.html',
+        category: 'Main',
+        description: 'Kritisch pad analyse',
+        checks: [
+          'KPI cards tonen',
+          'Activiteiten tonen met float',
+          'Critical path identificatie',
+          'Tabellen renderen correct'
+        ]
+      },
+      {
+        id: 'costing',
+        name: 'Costing',
+        file: 'costing.html',
+        category: 'Main',
+        description: 'Kostenbeheer',
+        checks: [
+          'Total cards correct',
+          'Cost breakdown per item',
+          'Tabel toont alle data',
+          'Cijfers kloppen'
+        ]
+      },
+      {
+        id: 'disciplines',
+        name: 'Disciplines',
+        file: 'disciplines.html',
+        category: 'Support',
+        description: 'Discipline management',
+        checks: [
+          'Discipline cards tonen',
+          'Norm tables tonen',
+          'Norm toevoegen werkt',
+          'Norm verwijderen werkt',
+          'Activity codes tonen',
+          'Filters werken'
+        ]
+      },
+      {
+        id: 'execution',
+        name: 'Execution',
+        file: 'execution.html',
+        category: 'Support',
+        description: 'Uitvoering & status updates',
+        checks: [
+          'Stats cards correct',
+          'Lijst view werkt',
+          'Card view werkt',
+          'Status update modal werkt',
+          'Status opslaan werkt',
+          'Progress % update werkt',
+          'Filters werken'
+        ]
+      },
+      {
+        id: 'wallboard',
+        name: 'Wallboard',
+        file: 'wallboard.html',
+        category: 'Support',
+        description: 'Groot scherm dashboard',
+        checks: [
+          'KPI cards tonen',
+          'Live klok werkt',
+          'Dark mode toggle werkt',
+          'Auto-refresh werkt',
+          'Grafieken renderen',
+          'Critical items tonen'
+        ]
+      },
+      {
+        id: 'exports',
+        name: 'Exports',
+        file: 'exports.html',
+        category: 'Support',
+        description: 'Export hub',
+        checks: [
+          'CSV export werkt',
+          'HTML rapport genereren werkt',
+          'JSON backup werkt',
+          'P6 XML export werkt',
+          'Recent exports log werkt'
+        ]
+      },
+      {
+        id: 'admin',
+        name: 'Admin',
+        file: 'admin.html',
+        category: 'Admin',
+        description: 'Gebruikersbeheer & settings',
+        checks: [
+          'Users tab werkt',
+          'Gebruiker toevoegen werkt',
+          'Gebruiker verwijderen werkt',
+          'Changelog tab toont data',
+          'Backup tab werkt',
+          'Export backup werkt',
+          'Import backup werkt',
+          'Settings tab toont info'
+        ]
+      },
+      {
+        id: 'changelog',
+        name: 'Changelog',
+        file: 'changelog.html',
+        category: 'Admin',
+        description: 'Versie geschiedenis',
+        checks: [
+          'Versie info toont',
+          "What's new toont",
+          'Activity log toont',
+          'Versie geschiedenis correct',
+          'Datum grouping werkt'
+        ]
+      }
+    ];
+
+    let testResults = {};
+    let currentModule = null;
+
+    // Initialize
+    function init() {
+      loadFromStorage();
+      renderGrid();
+      updateStats();
+      loadGeneralNotes();
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('testGrid');
+      const categories = ['Core', 'Main', 'Support', 'Admin'];
+      
+      let html = '';
+      categories.forEach(cat => {
+        const modules = MODULES.filter(m => m.category === cat);
+        if (modules.length === 0) return;
+        
+        html += `
+          <div class="col-span-full">
+            <h3 class="text-white text-lg font-bold mb-3 flex items-center gap-2">
+              <span class="w-8 h-1 bg-white/50 rounded"></span>
+              ${cat}
+              <span class="flex-1 h-1 bg-white/50 rounded"></span>
+            </h3>
+          </div>
+        `;
+        
+        modules.forEach(mod => {
+          const result = testResults[mod.id] || {};
+          const status = result.status || 'untested';
+          const hasNotes = result.notes && result.notes.trim().length > 0;
+          
+          const statusColors = {
+            untested: 'border-gray-300 bg-white',
+            pass: 'border-emerald-500 bg-emerald-50',
+            fail: 'border-red-500 bg-red-50',
+            partial: 'border-amber-500 bg-amber-50'
+          };
+          
+          const statusIcons = {
+            untested: '○',
+            pass: '✅',
+            fail: '❌',
+            partial: '⚠️'
+          };
+          
+          html += `
+            <div onclick="openTest('${mod.id}')" 
+              class="test-item cursor-pointer ${statusColors[status]} border-2 rounded-xl p-5 hover:shadow-lg transition-all">
+              <div class="flex items-start justify-between mb-3">
+                <div class="flex-1">
+                  <div class="font-bold text-gray-900 mb-1">${mod.name}</div>
+                  <div class="text-xs text-gray-500">${mod.file}</div>
+                </div>
+                <span class="text-3xl">${statusIcons[status]}</span>
+              </div>
+              <div class="text-sm text-gray-600 mb-3">${mod.description}</div>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="px-2 py-1 bg-slate-100 text-slate-700 rounded">${mod.checks.length} checks</span>
+                ${hasNotes ? '<span class="px-2 py-1 bg-blue-100 text-blue-700 rounded">📝 Notities</span>' : ''}
+                ${result.priority ? `<span class="px-2 py-1 bg-${result.priority === 'critical' ? 'red' : result.priority === 'high' ? 'orange' : result.priority === 'medium' ? 'amber' : 'emerald'}-100 rounded">${result.priority}</span>` : ''}
+              </div>
+            </div>
+          `;
+        });
+      });
+      
+      grid.innerHTML = html;
+    }
+
+    function openTest(moduleId) {
+      currentModule = MODULES.find(m => m.id === moduleId);
+      if (!currentModule) return;
+      
+      const result = testResults[moduleId] || {};
+      
+      document.getElementById('modalTitle').textContent = currentModule.name;
+      document.getElementById('modalFile').textContent = currentModule.file;
+      
+      // Checklist
+      document.getElementById('checklist').innerHTML = currentModule.checks.map((check, i) => `
+        <label class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+          <input type="checkbox" id="check-${i}" 
+            ${result.checks && result.checks[i] ? 'checked' : ''}
+            class="w-5 h-5 accent-blue-600">
+          <span class="text-sm text-gray-700">${check}</span>
+        </label>
+      `).join('');
+      
+      // Status buttons
+      setStatusUI(result.status || 'untested');
+      
+      // Notes
+      document.getElementById('testNotes').value = result.notes || '';
+      
+      // Priority
+      setPriorityUI(result.priority || null);
+      
+      document.getElementById('testModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('testModal').classList.add('hidden');
+      currentModule = null;
+    }
+
+    function setStatus(status) {
+      setStatusUI(status);
+    }
+
+    function setStatusUI(status) {
+      const buttons = {
+        pass: document.getElementById('statusPass'),
+        fail: document.getElementById('statusFail'),
+        partial: document.getElementById('statusPartial')
+      };
+      
+      Object.entries(buttons).forEach(([key, btn]) => {
+        if (key === status) {
+          btn.className = 'flex-1 px-4 py-3 border-2 rounded-xl font-medium transition-all ' +
+            (key === 'pass' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' :
+             key === 'fail' ? 'border-red-500 bg-red-50 text-red-700' :
+             'border-amber-500 bg-amber-50 text-amber-700');
+        } else {
+          btn.className = 'flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl font-medium transition-all hover:border-gray-300';
+        }
+      });
+    }
+
+    function setPriority(prio) {
+      setPriorityUI(prio);
+    }
+
+    function setPriorityUI(prio) {
+      ['low', 'medium', 'high', 'critical'].forEach(p => {
+        const btn = document.getElementById(`prio${p.charAt(0).toUpperCase() + p.slice(1)}`);
+        if (p === prio) {
+          btn.className = 'px-4 py-2 border-2 border-blue-500 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium';
+        } else {
+          btn.className = 'px-4 py-2 border rounded-lg text-sm hover:border-gray-300';
+        }
+      });
+    }
+
+    function saveTest() {
+      if (!currentModule) return;
+      
+      const checks = currentModule.checks.map((_, i) => 
+        document.getElementById(`check-${i}`).checked
+      );
+      
+      const status = 
+        document.getElementById('statusPass').className.includes('emerald') ? 'pass' :
+        document.getElementById('statusFail').className.includes('red') ? 'fail' :
+        document.getElementById('statusPartial').className.includes('amber') ? 'partial' :
+        'untested';
+      
+      const priority = 
+        document.getElementById('prioCritical').className.includes('blue') ? 'critical' :
+        document.getElementById('prioHigh').className.includes('blue') ? 'high' :
+        document.getElementById('prioMedium').className.includes('blue') ? 'medium' :
+        document.getElementById('prioLow').className.includes('blue') ? 'low' :
+        null;
+      
+      testResults[currentModule.id] = {
+        checks,
+        status,
+        priority,
+        notes: document.getElementById('testNotes').value,
+        tested: new Date().toISOString()
+      };
+      
+      saveToStorage();
+      closeModal();
+      renderGrid();
+      updateStats();
+    }
+
+    function openModule() {
+      if (currentModule) {
+        window.open(currentModule.file, '_blank');
+      }
+    }
+
+    function updateStats() {
+      const tested = Object.keys(testResults).length;
+      const passed = Object.values(testResults).filter(r => r.status === 'pass').length;
+      const failed = Object.values(testResults).filter(r => r.status === 'fail').length;
+      const notes = Object.values(testResults).filter(r => r.notes && r.notes.trim()).length;
+      
+      document.getElementById('testedCount').textContent = tested;
+      document.getElementById('passedCount').textContent = passed;
+      document.getElementById('failedCount').textContent = failed;
+      document.getElementById('notesCount').textContent = notes;
+    }
+
+    function saveToStorage() {
+      localStorage.setItem('chemprep_test_results', JSON.stringify(testResults));
+    }
+
+    function loadFromStorage() {
+      try {
+        testResults = JSON.parse(localStorage.getItem('chemprep_test_results') || '{}');
+      } catch {
+        testResults = {};
+      }
+    }
+
+    function saveGeneralNotes() {
+      localStorage.setItem('chemprep_test_general_notes', document.getElementById('generalNotes').value);
+      const notif = document.getElementById('saveNotification');
+      notif.style.opacity = '1';
+      setTimeout(() => { notif.style.opacity = '0'; }, 2000);
+    }
+
+    function loadGeneralNotes() {
+      document.getElementById('generalNotes').value = localStorage.getItem('chemprep_test_general_notes') || '';
+    }
+
+    function resetAll() {
+      if (!confirm('ALLE test data wissen?\n\nDit kan niet ongedaan worden!')) return;
+      testResults = {};
+      saveToStorage();
+      document.getElementById('generalNotes').value = '';
+      localStorage.removeItem('chemprep_test_general_notes');
+      renderGrid();
+      updateStats();
+    }
+
+    function exportResults() {
+      const report = {
+        generated: new Date().toISOString(),
+        version: 'ChemPrep v5.1 Modular',
+        summary: {
+          totalModules: MODULES.length,
+          tested: Object.keys(testResults).length,
+          passed: Object.values(testResults).filter(r => r.status === 'pass').length,
+          failed: Object.values(testResults).filter(r => r.status === 'fail').length,
+          partial: Object.values(testResults).filter(r => r.status === 'partial').length
+        },
+        modules: MODULES.map(mod => ({
+          id: mod.id,
+          name: mod.name,
+          file: mod.file,
+          category: mod.category,
+          result: testResults[mod.id] || { status: 'untested' }
+        })),
+        generalNotes: document.getElementById('generalNotes').value
+      };
+      
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chemprep-test-results-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function saveProgress() {
+      const data = {
+        results: testResults,
+        generalNotes: document.getElementById('generalNotes').value,
+        saved: new Date().toISOString()
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chemprep-test-progress-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function loadProgress() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = JSON.parse(e.target.result);
+            testResults = data.results || {};
+            document.getElementById('generalNotes').value = data.generalNotes || '';
+            saveToStorage();
+            saveGeneralNotes();
+            renderGrid();
+            updateStats();
+            alert('✅ Voortgang geladen!');
+          } catch (err) {
+            alert('❌ Fout bij laden: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    // Initialize on load
+    init();
+  </script>
+</body>
+</html>

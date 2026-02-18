@@ -3,173 +3,218 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>ChemPrep v5.1 - Turnaround Management</title>
-  
-  <!-- Tailwind CSS -->
+  <title>ChemPrep - Projects</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React 18 -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-  
-  <!-- Babel Standalone -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
+  <script src="shared.js"></script>
   <style>
-    body { 
-      margin: 0; 
-      padding: 0; 
-      overflow: hidden; 
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-    #root { width: 100vw; height: 100vh; }
-    
-    /* Loading spinner */
-    .loader {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      flex-direction: column;
-      gap: 24px;
-    }
-    .spinner {
-      width: 60px;
-      height: 60px;
-      border: 6px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .loader-text {
-      color: white;
-      font-size: 18px;
-      font-weight: 600;
-    }
+    body { margin: 0; font-family: system-ui, sans-serif; }
   </style>
 </head>
-<body>
-  <div id="root">
-    <div class="loader">
-      <div class="spinner"></div>
-      <div class="loader-text">ChemPrep aan het laden...</div>
-      <div style="color: rgba(255,255,255,0.7); font-size: 14px;">Dit kan 10-15 seconden duren</div>
+<body class="bg-gradient-to-br from-blue-500 to-purple-600 min-h-screen p-4">
+  
+  <div class="max-w-6xl mx-auto">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl shadow-2xl p-6 mb-6">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">📦 ChemPrep v5.1 - Modular</h1>
+      <p class="text-gray-500">Turnaround Management System</p>
+    </div>
+
+    <!-- Actions -->
+    <div class="bg-white rounded-xl shadow-lg p-4 mb-6 flex gap-3 flex-wrap">
+      <button onclick="createProject()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+        ➕ Nieuw Project
+      </button>
+      <button onclick="importData()" class="px-4 py-2 bg-slate-600 text-white rounded-lg font-medium hover:bg-slate-700">
+        📥 Importeer Backup
+      </button>
+      <button onclick="exportData()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700">
+        📤 Exporteer Backup
+      </button>
+      <div class="flex-1"></div>
+      <div class="text-sm text-gray-500 flex items-center gap-2">
+        <span id="projectCount">0 projecten</span> · 
+        <span id="scopeCount">0 werkpakketten</span>
+      </div>
+    </div>
+
+    <!-- Projects Grid -->
+    <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Filled by JavaScript -->
     </div>
   </div>
-  
+
   <script>
-    // Global error handler
-    window.addEventListener('error', function(e) {
-      console.error('Error:', e.message);
-      document.getElementById('root').innerHTML = `
-        <div style="padding: 40px; font-family: sans-serif; max-width: 800px; margin: 0 auto;">
-          <h1 style="color: #ef4444; margin-bottom: 16px;">⚠️ Laadprobleem</h1>
-          <p style="color: #64748b; margin-bottom: 20px;">ChemPrep kon niet laden op dit apparaat.</p>
-          <div style="background: #f1f5f9; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-            <strong>Foutmelding:</strong><br/>
-            <code style="color: #ef4444;">${e.message}</code>
+    // Load and render projects
+    function render() {
+      const projects = ChemPrepDB.getProjects();
+      const allScope = ChemPrepDB.getScopeItems();
+      
+      document.getElementById('projectCount').textContent = `${projects.length} project${projects.length !== 1 ? 'en' : ''}`;
+      document.getElementById('scopeCount').textContent = `${allScope.length} werkpakket${allScope.length !== 1 ? 'ten' : ''}`;
+      
+      const grid = document.getElementById('projectsGrid');
+      
+      if (projects.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full bg-white rounded-xl p-12 text-center">
+            <div class="text-6xl mb-4">📦</div>
+            <h3 class="text-xl font-bold text-gray-700 mb-2">Geen projecten</h3>
+            <p class="text-gray-500 mb-4">Maak je eerste turnaround project aan</p>
+            <button onclick="createProject()" class="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+              ➕ Nieuw Project
+            </button>
           </div>
-          <div style="background: #fef3c7; border: 1px solid #fbbf24; padding: 16px; border-radius: 8px;">
-            <strong>💡 Tips:</strong>
-            <ul style="margin: 8px 0 0 20px; color: #92400e;">
-              <li>Probeer het op een laptop/desktop (mobiele browsers hebben vaak te weinig geheugen)</li>
-              <li>Hard refresh: Ctrl+Shift+R (Windows) of Cmd+Shift+R (Mac)</li>
-              <li>Probeer Chrome of Edge browser</li>
-              <li>Schakel browser extensies tijdelijk uit</li>
-            </ul>
-          </div>
-        </div>
-      `;
-    });
-  </script>
-  
-  <script type="text/babel">
-    (async () => {
-      try {
-        console.log('🚀 ChemPrep starting...');
+        `;
+        return;
+      }
+      
+      grid.innerHTML = projects.map(p => {
+        const scope = allScope.filter(s => s.projectId === p.id);
+        const completed = scope.filter(s => {
+          const acts = s.plannedActivities || [];
+          const done = acts.filter(a => a.executionStatus === 'Completed').length;
+          return acts.length > 0 && done === acts.length;
+        }).length;
+        const progress = scope.length > 0 ? Math.round((completed / scope.length) * 100) : 0;
         
-        // Setup React & Icons
-        const React = window.React;
-        const { useState, useEffect, useMemo, useRef, useCallback } = React;
-        const icons = window.lucide.icons;
-        
-        // Map all icons
-        const Activity=icons.Activity, AlertCircle=icons.AlertCircle, AlertTriangle=icons.AlertTriangle,
-              Archive=icons.Archive, ArrowRight=icons.ArrowRight, BarChart2=icons.BarChart2,
-              BarChart3=icons.BarChart3, Bell=icons.Bell, Book=icons.Book, Box=icons.Box,
-              Building2=icons.Building2, Calculator=icons.Calculator, Calendar=icons.Calendar,
-              Camera=icons.Camera, Check=icons.Check, CheckCircle=icons.CheckCircle,
-              CheckCircle2=icons.CheckCircle2, ChevronDown=icons.ChevronDown, ChevronLeft=icons.ChevronLeft,
-              ChevronRight=icons.ChevronRight, Circle=icons.Circle, Clock=icons.Clock,
-              Database=icons.Database, DollarSign=icons.DollarSign, Download=icons.Download,
-              Edit2=icons.Edit2, FileOutput=icons.FileOutput, FileSpreadsheet=icons.FileSpreadsheet,
-              FileText=icons.FileText, Filter=icons.Filter, FolderOpen=icons.FolderOpen,
-              GitBranch=icons.GitBranch, GripVertical=icons.GripVertical, History=icons.History,
-              Layers=icons.Layers, LayoutDashboard=icons.LayoutDashboard, Link2=icons.Link2,
-              Loader=icons.Loader, Menu=icons.Menu, Monitor=icons.Monitor, Package=icons.Package,
-              Percent=icons.Percent, Play=icons.Play, Plus=icons.Plus, Printer=icons.Printer,
-              QrCode=icons.QrCode, RefreshCw=icons.RefreshCw, Save=icons.Save, ScanLine=icons.ScanLine,
-              Search=icons.Search, Settings=icons.Settings, Share2=icons.Share2, Square=icons.Square,
-              Table=icons.Table, Tag=icons.Tag, Trash2=icons.Trash2, TrendingUp=icons.TrendingUp,
-              Triangle=icons.Triangle, Upload=icons.Upload, User=icons.User, Users=icons.Users,
-              Wrench=icons.Wrench, X=icons.X, Zap=icons.Zap;
-        
-        console.log('✅ Dependencies loaded');
-        
-        // Load ChemPrep code
-        const response = await fetch('ChemPrep-v5.1.jsx');
-        if (!response.ok) throw new Error('Could not load ChemPrep-v5.1.jsx');
-        
-        let code = await response.text();
-        console.log(`✅ Loaded ${(code.length/1024).toFixed(0)}KB of code`);
-        
-        // Remove imports/exports
-        code = code.replace(/^import.*from.*['"];?\s*$/gm, '');
-        code = code.replace(/^export default App;?\s*$/m, '');
-        
-        // Execute code (this defines App component)
-        eval(code);
-        console.log('✅ App component ready');
-        
-        // Render
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(App));
-        
-        console.log('✅ ChemPrep rendered successfully!');
-        
-      } catch(err) {
-        console.error('❌ Fatal error:', err);
-        document.getElementById('root').innerHTML = `
-          <div style="padding: 40px; font-family: sans-serif; max-width: 800px; margin: 0 auto;">
-            <h1 style="color: #ef4444;">⚠️ ChemPrep kon niet laden</h1>
-            <p style="color: #64748b; margin: 20px 0;">Er is een fout opgetreden tijdens het laden.</p>
-            <div style="background: #f1f5f9; padding: 16px; border-radius: 8px; margin-bottom: 20px; overflow: auto;">
-              <strong>Fout:</strong><br/>
-              <code style="color: #ef4444;">${err.message}</code>
-              <pre style="margin-top: 12px; font-size: 11px; color: #64748b;">${err.stack || ''}</pre>
-            </div>
-            <div style="background: #fef3c7; border: 1px solid #fbbf24; padding: 16px; border-radius: 8px;">
-              <strong>💡 Controleer:</strong>
-              <ul style="margin: 8px 0 0 20px; color: #92400e;">
-                <li>Staat <code>ChemPrep-v5.1.jsx</code> in dezelfde map als <code>index.html</code>?</li>
-                <li>Browser console (F12) voor meer details</li>
-                <li>Gebruik je Chrome, Edge, Firefox of Safari? (IE werkt niet)</li>
-              </ul>
+        return `
+          <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition cursor-pointer" onclick="openProject('${p.id}')">
+            <div class="h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+            <div class="p-5">
+              <h3 class="font-bold text-lg text-gray-900 mb-2">${p.name}</h3>
+              <p class="text-sm text-gray-500 mb-4">${p.description || 'Geen omschrijving'}</p>
+              
+              <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="text-center p-2 bg-slate-50 rounded">
+                  <div class="text-2xl font-bold text-blue-600">${scope.length}</div>
+                  <div class="text-xs text-gray-500">Werkpakketten</div>
+                </div>
+                <div class="text-center p-2 bg-slate-50 rounded">
+                  <div class="text-2xl font-bold text-emerald-600">${progress}%</div>
+                  <div class="text-xs text-gray-500">Gereed</div>
+                </div>
+              </div>
+              
+              <div class="h-2 bg-gray-200 rounded-full overflow-hidden mb-3">
+                <div class="h-full bg-gradient-to-r from-emerald-400 to-emerald-600" style="width: ${progress}%"></div>
+              </div>
+              
+              <div class="flex gap-2 text-xs text-gray-400">
+                <span>📅 ${new Date(p.startDate || Date.now()).toLocaleDateString('nl-NL')}</span>
+                <span>→</span>
+                <span>${new Date(p.endDate || Date.now()).toLocaleDateString('nl-NL')}</span>
+              </div>
+              
+              <div class="mt-3 pt-3 border-t flex gap-2">
+                <button onclick="event.stopPropagation(); editProject('${p.id}')" class="flex-1 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100">
+                  ✏️ Bewerken
+                </button>
+                <button onclick="event.stopPropagation(); deleteProject('${p.id}')" class="px-3 py-1.5 text-xs bg-red-50 text-red-700 rounded hover:bg-red-100">
+                  🗑️
+                </button>
+              </div>
             </div>
           </div>
         `;
-      }
-    })();
+      }).join('');
+    }
+    
+    function createProject() {
+      const name = prompt('Project naam:');
+      if (!name) return;
+      
+      const projects = ChemPrepDB.getProjects();
+      const newProject = {
+        id: 'proj-' + Date.now(),
+        name,
+        description: '',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 90*24*60*60*1000).toISOString().split('T')[0],
+        created: new Date().toISOString()
+      };
+      
+      projects.push(newProject);
+      ChemPrepDB.saveProjects(projects);
+      ChemPrepDB.addChangelogEntry({ action: 'create', type: 'project', description: `Project "${name}" aangemaakt` });
+      render();
+    }
+    
+    function openProject(id) {
+      ChemPrepDB.setActiveProjectId(id);
+      window.location.href = 'dashboard.html';
+    }
+    
+    function editProject(id) {
+      const projects = ChemPrepDB.getProjects();
+      const project = projects.find(p => p.id === id);
+      if (!project) return;
+      
+      const name = prompt('Project naam:', project.name);
+      if (!name) return;
+      
+      project.name = name;
+      ChemPrepDB.saveProjects(projects);
+      render();
+    }
+    
+    function deleteProject(id) {
+      const projects = ChemPrepDB.getProjects();
+      const project = projects.find(p => p.id === id);
+      if (!project) return;
+      
+      if (!confirm(`Project "${project.name}" verwijderen?\n\nALLE werkpakketten worden ook verwijderd!`)) return;
+      
+      // Remove project
+      const updated = projects.filter(p => p.id !== id);
+      ChemPrepDB.saveProjects(updated);
+      
+      // Remove scope items
+      const scope = ChemPrepDB.getScopeItems().filter(s => s.projectId !== id);
+      ChemPrepDB.saveScopeItems(scope);
+      
+      ChemPrepDB.addChangelogEntry({ action: 'delete', type: 'project', description: `Project "${project.name}" verwijderd` });
+      render();
+    }
+    
+    function exportData() {
+      const backup = ChemPrepDB.exportAll();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chemprep-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const backup = JSON.parse(e.target.result);
+            if (!confirm('Huidige data wordt overschreven!\n\nDoorgaan?')) return;
+            
+            ChemPrepDB.importAll(backup);
+            alert('✅ Backup geïmporteerd!');
+            render();
+          } catch (err) {
+            alert('❌ Fout bij importeren: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+    
+    // Initial render
+    render();
   </script>
 </body>
 </html>
